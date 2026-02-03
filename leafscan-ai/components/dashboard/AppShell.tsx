@@ -16,10 +16,22 @@ const AppShell = memo(function AppShell({ children }: { children: React.ReactNod
     const pathname = usePathname()
     const [isPending, startTransition] = useTransition()
 
-    const handleLogout = () => {
+    const handleLogout = React.useCallback(() => {
         logout()
         router.push('/')
-    }
+    }, [logout, router])
+
+    const handleTogglePublicMode = React.useCallback(() => {
+        togglePublicMode()
+    }, [togglePublicMode])
+
+    const handleCloseSidebar = React.useCallback(() => {
+        setSidebarOpen(false)
+    }, [])
+
+    const handleOpenSidebar = React.useCallback(() => {
+        setSidebarOpen(true)
+    }, [])
 
     const menuItems = useMemo(() => [
         { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
@@ -69,7 +81,7 @@ const AppShell = memo(function AppShell({ children }: { children: React.ReactNod
                     {/* Bottom Actions */}
                     <div className="flex flex-col gap-4 items-center">
                         <button
-                            onClick={togglePublicMode}
+                            onClick={handleTogglePublicMode}
                             className={`p-3 rounded-xl transition-all ${isPublicMode ? 'bg-apeel-green text-white' : 'text-gray-400 hover:bg-gray-100'
                                 }`}
                         >
@@ -86,7 +98,7 @@ const AppShell = memo(function AppShell({ children }: { children: React.ReactNod
 
                 {/* Mobile Sidebar Overlay */}
                 {sidebarOpen && (
-                    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm md:hidden animate-fade-in" onClick={() => setSidebarOpen(false)}>
+                    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm md:hidden animate-fade-in" onClick={handleCloseSidebar}>
                         <div className="absolute left-0 top-0 h-full w-72 bg-white shadow-2xl animate-slide-in-left" onClick={e => e.stopPropagation()}>
                             <div className="p-6 border-b border-gray-200 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
@@ -95,7 +107,7 @@ const AppShell = memo(function AppShell({ children }: { children: React.ReactNod
                                     </div>
                                     <span className="font-bold text-xl text-apeel-black">LeafScan</span>
                                 </div>
-                                <button onClick={() => setSidebarOpen(false)}>
+                                <button onClick={handleCloseSidebar}>
                                     <X className="w-6 h-6 text-gray-400" />
                                 </button>
                             </div>
@@ -105,7 +117,7 @@ const AppShell = memo(function AppShell({ children }: { children: React.ReactNod
                                         key={item.href}
                                         href={item.href}
                                         prefetch={true}
-                                        onClick={() => setSidebarOpen(false)}
+                                        onClick={handleCloseSidebar}
                                         className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${pathname === item.href
                                                 ? 'bg-apeel-green text-white'
                                                 : 'text-gray-700 hover:bg-gray-100'
@@ -124,7 +136,7 @@ const AppShell = memo(function AppShell({ children }: { children: React.ReactNod
                 <main className="flex-1 flex flex-col h-screen relative overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
                     {/* Mobile Header */}
                     <header className="md:hidden h-16 flex items-center justify-between px-4 z-20 bg-white border-b border-gray-200">
-                        <button onClick={() => setSidebarOpen(true)}>
+                        <button onClick={handleOpenSidebar}>
                             <Menu className="w-6 h-6 text-gray-700" />
                         </button>
                         <div className="flex items-center gap-2">

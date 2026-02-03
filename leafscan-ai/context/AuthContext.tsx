@@ -119,15 +119,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         router.push('/auth/login')
     }
 
+    const contextValue = React.useMemo(() => ({
+        user,
+        login,
+        signup,
+        logout,
+        isAuthenticated: !!user,
+        isLoading
+    }), [user, login, signup, logout, isLoading])
+
     return (
-        <AuthContext.Provider value={{
-            user,
-            login,
-            signup,
-            logout,
-            isAuthenticated: !!user,
-            isLoading
-        }}>
+        <AuthContext.Provider value={contextValue}>
             {children}
         </AuthContext.Provider>
     )

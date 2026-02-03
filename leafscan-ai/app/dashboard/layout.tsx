@@ -1,3 +1,6 @@
+'use client'
+
+import { memo } from 'react'
 import AppShell from '@/components/dashboard/AppShell'
 import AuthGuard from '@/components/auth/AuthGuard'
 import { IncidentProvider } from '@/context/IncidentContext'
@@ -8,7 +11,7 @@ import { ExchangeProvider } from '@/context/ExchangeContext'
 import { KnowledgeProvider } from '@/context/KnowledgeContext'
 import { NotesProvider } from '@/context/NotesContext'
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+const DashboardLayout = memo(function DashboardLayout({ children }: { children: React.ReactNode }) {
     return (
         <AuthGuard>
             <AutonomyProvider>
@@ -30,4 +33,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </AutonomyProvider>
         </AuthGuard>
     )
-}
+})
+
+export default DashboardLayout

@@ -1,0 +1,104 @@
+[
+    {
+        "id": "sup_001",
+        "name": "COGEPRA Semences",
+        "category": "Seeds & Fertilizers",
+        "address": "118 Rue Lieutenant Mahroud Mohamed, Casablanca 20250",
+        "coordinates": {
+            "lat": 33.5951,
+            "lng": -7.6180
+        },
+        "phone": "+212 522-307436",
+        "website": "http://www.cogepra.ma",
+        "rating": 4.8,
+        "reviews": 124,
+        "isOpen": true,
+        "distance": 2.4,
+        "description": "Premium supplier of drought-resistant tomato seeds and organic fertilizers."
+    },
+    {
+        "id": "sup_002",
+        "name": "CMGP Casablanca",
+        "category": "Irrigation",
+        "address": "Parc Industriel Sapino, Nouaceur",
+        "coordinates": {
+            "lat": 33.3683,
+            "lng": -7.5217
+        },
+        "phone": "+212 522-495610",
+        "website": "https://www.cmgp-cas.com",
+        "rating": 4.9,
+        "reviews": 310,
+        "isOpen": true,
+        "distance": 15.2,
+        "description": "Leading provider of drip irrigation systems, pumps, and water management solutions."
+    },
+    {
+        "id": "sup_003",
+        "name": "Agri-Materiel Maroc",
+        "category": "Tools & Machinery",
+        "address": "Route de Rabat, Ain Sebaa, Casablanca",
+        "coordinates": {
+            "lat": 33.6105,
+            "lng": -7.5300
+        },
+        "phone": "+212 522-351122",
+        "website": "https://agrimateriel.ma",
+        "rating": 4.5,
+        "reviews": 89,
+        "isOpen": true,
+        "distance": 8.1,
+        "description": "Heavy machinery, tractors, and specialized harvesting tools."
+    },
+    {
+        "id": "sup_004",
+        "name": "BioTech Maroc",
+        "category": "Pesticides & Bio-Control",
+        "address": "Zone Industrielle Mohammedia",
+        "coordinates": {
+            "lat": 33.6800,
+            "lng": -7.3800
+        },
+        "phone": "+212 523-324455",
+        "website": "https://biotech.ma",
+        "rating": 4.7,
+        "reviews": 56,
+        "isOpen": true,
+        "distance": 22.5,
+        "description": "Eco-friendly bio-pesticides and integrated pest management consulting."
+    },
+    {
+        "id": "sup_005",
+        "name": "Alf Sahel",
+        "category": "Animal Feed & Nutrition",
+        "address": "Had Soualem, Route Nationale 1",
+        "coordinates": {
+            "lat": 33.4200,
+            "lng": -7.8500
+        },
+        "phone": "+212 522-964400",
+        "website": "https://alfsahel.ma",
+        "rating": 4.6,
+        "reviews": 210,
+        "isOpen": true,
+        "distance": 28.0,
+        "description": "High-quality feed for livestock and poultry."
+    },
+    {
+        "id": "sup_006",
+        "name": "Société Agricole du Gharb",
+        "category": "Consulting",
+        "address": "Kenitra Center",
+        "coordinates": {
+            "lat": 34.2610,
+            "lng": -6.5802
+        },
+        "phone": "+212 537-371234",
+        "website": "https://sag-agri.ma",
+        "rating": 4.3,
+        "reviews": 42,
+        "isOpen": false,
+        "distance": 120.0,
+        "description": "Agricultural consulting services for yield optimization."
+    }
+]

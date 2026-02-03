@@ -29,9 +29,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter()
 
     useEffect(() => {
+        console.log('[AuthContext] Initializing auth check...')
+        
         // Check active Supabase session
         getCurrentUser().then((currentUser) => {
             if (currentUser) {
+                console.log('[AuthContext] ✅ User found:', currentUser.email)
                 const authUser = toAuthUser(currentUser)
                 const profile: UserProfile = {
                     ...authUser,
@@ -39,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     role: currentUser.user_metadata?.role || 'farmer'
                 }
                 setUser(profile)
+                console.log('[AuthContext] User profile set:', profile.email)
                 
                 // Initialize system for this user
                 try {
@@ -48,12 +52,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     localStorage.removeItem('leafscan_v2_system')
                     initializeSystem(profile.id)
                 }
+            } else {
+                console.log('[AuthContext] ❌ No user found')
             }
+            setIsLoading(false)
+        }).catch(error => {
+            console.error('[AuthContext] Error getting current user:', error)
             setIsLoading(false)
         })
 
         // Listen for auth changes
         const { data: { subscription } } = onAuthStateChange((authUser) => {
+            console.log('[AuthContext] Auth state changed:', authUser ? authUser.email : 'logged out')
             if (authUser) {
                 const profile: UserProfile = {
                     ...authUser,

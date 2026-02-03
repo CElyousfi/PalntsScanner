@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter, usePathname } from 'next/navigation'
 
@@ -8,14 +8,21 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     const { user, isLoading, isAuthenticated } = useAuth()
     const router = useRouter()
     const pathname = usePathname()
+    const hasRedirected = useRef(false)
 
     useEffect(() => {
-        // Redirect to login if not authenticated
-        if (!isLoading && !isAuthenticated) {
+        // Only redirect once and if not already on auth page
+        if (!isLoading && !isAuthenticated && !hasRedirected.current && !pathname.startsWith('/auth')) {
             console.log('[AuthGuard] User not authenticated, redirecting to login')
+            hasRedirected.current = true
             router.push('/auth/login')
         }
-    }, [isLoading, isAuthenticated, router])
+        
+        // Reset redirect flag when user becomes authenticated
+        if (isAuthenticated) {
+            hasRedirected.current = false
+        }
+    }, [isLoading, isAuthenticated, router, pathname])
 
     // Show loading state
     if (isLoading) {

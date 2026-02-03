@@ -1,10 +1,9 @@
+'use client'
+
 export default function DashboardLoading() {
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="flex flex-col items-center gap-4">
-        <div className="w-12 h-12 border-4 border-apeel-green border-t-transparent rounded-full animate-spin" />
-        <p className="text-gray-600 font-medium">Loading...</p>
-      </div>
+    <div className="absolute top-0 left-0 right-0 h-1 bg-apeel-green/20 z-50 overflow-hidden">
+      <div className="h-full bg-apeel-green animate-[loading_1s_ease-in-out_infinite]" style={{ width: '30%' }} />
     </div>
   )
 }

@@ -3,7 +3,7 @@
 import { useAuth } from '@/context/AuthContext'
 import { LayoutDashboard, Compass, Sprout, History, Globe, LogOut, Search, Eye, EyeOff, Menu, X, Leaf, FileText, Apple } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
-import React, { useState, useMemo, memo, useTransition } from 'react'
+import React, { useState, useMemo, memo, useTransition, useEffect } from 'react'
 import Link from 'next/link'
 import { usePublicAccess } from '@/context/PublicAccessContext'
 import AIChat from '../AIChat'
@@ -42,6 +42,13 @@ const AppShell = memo(function AppShell({ children }: { children: React.ReactNod
         { icon: Compass, label: 'Explore', href: '/dashboard/explore' },
         { icon: History, label: 'History', href: '/dashboard/history' },
     ], [])
+
+    // Aggressive prefetching on mount - load all dashboard pages immediately
+    useEffect(() => {
+        menuItems.forEach(item => {
+            router.prefetch(item.href)
+        })
+    }, [menuItems, router])
 
     return (
         <div className="relative min-h-screen overflow-hidden">

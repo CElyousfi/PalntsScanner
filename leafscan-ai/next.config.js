@@ -4,6 +4,7 @@ const nextConfig = {
   reactStrictMode: false, // Disable strict mode to prevent double renders
   images: {
     domains: ['localhost'],
+    unoptimized: true, // Faster image loading in dev
   },
   env: {
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
@@ -20,23 +21,31 @@ const nextConfig = {
         /Failed to parse source map/,
         /Critical dependency/,
       ]
-      // Enable caching for faster rebuilds
-      config.cache = true
+      // Enable aggressive caching for SPA-like experience
+      config.cache = {
+        type: 'memory',
+        maxGenerations: 5,
+      }
     }
     return config
   },
-  // Optimize on-demand entries for better performance
+  // Optimize on-demand entries for SPA behavior
   onDemandEntries: {
-    maxInactiveAge: 60 * 1000, // Keep pages in memory longer
-    pagesBufferLength: 5, // Keep more pages in buffer
+    maxInactiveAge: 120 * 1000, // Keep pages in memory for 2 minutes
+    pagesBufferLength: 10, // Keep 10 pages in buffer (all dashboard pages)
   },
   // Enable SWC minification for faster builds
   swcMinify: true,
   // Experimental features for better performance
   experimental: {
     optimizeCss: true, // Optimize CSS loading
-    optimizePackageImports: ['lucide-react', '@supabase/supabase-js'], // Optimize imports
+    optimizePackageImports: ['lucide-react', '@supabase/supabase-js', 'framer-motion'], // Optimize imports
+    // Enable aggressive prefetching
+    scrollRestoration: true,
   },
+  // Disable static optimization for dashboard routes (force dynamic)
+  // This prevents full page reloads
+  output: 'standalone',
 }
 
 module.exports = nextConfig

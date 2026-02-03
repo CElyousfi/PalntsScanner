@@ -1,6 +1,7 @@
 import { FarmSession } from './farm-session'
 import { DiagnosisResult, ActionRescueResult, FarmProfile, GrowthEntry } from '@/types'
 import { saveSystemStateToDatabase, getSystemStateFromDatabase } from './database'
+import { reactiveStore } from './reactive-store'
 
 // --- V2 Data Models ---
 
@@ -98,6 +99,13 @@ export function saveSystemState(state: FarmSystemState) {
         
         localStorage.setItem(STORE_KEY, jsonString)
         console.log('[saveSystemState] ✅ localStorage.setItem completed')
+        
+        // Trigger reactive updates - ALL components will update automatically!
+        reactiveStore.set('system-state', state)
+        reactiveStore.set('history', state.history)
+        reactiveStore.set('profiles', state.profiles)
+        reactiveStore.set('active-profile', state.profiles.find(p => p.id === state.activeProfileId))
+        console.log('[saveSystemState] ⚡ Reactive updates triggered!')
         
         // Immediate verification
         const readBack = localStorage.getItem(STORE_KEY)

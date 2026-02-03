@@ -5,6 +5,7 @@ import { LanguageProvider } from '@/context/LanguageContext'
 import { AuthProvider } from '@/context/AuthContext'
 import { MissionProvider } from '@/context/MissionContext'
 import ErrorSuppressor from '@/components/ErrorSuppressor'
+import GlobalStateSync from '@/components/GlobalStateSync'
 
 const urbanist = Urbanist({
   subsets: ['latin'],
@@ -28,6 +29,7 @@ export default function RootLayout({
     <html lang="en">
       <body suppressHydrationWarning className={`${urbanist.variable} font-urbanist`}>
         <ErrorSuppressor />
+        <GlobalStateSync />
         <LanguageProvider>
           <AuthProvider>
             <MissionProvider>

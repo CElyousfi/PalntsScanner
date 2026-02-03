@@ -3,7 +3,7 @@
 import { useAuth } from '@/context/AuthContext'
 import { LayoutDashboard, Compass, Sprout, History, Globe, LogOut, Search, Eye, EyeOff, Menu, X, Leaf, FileText, Apple } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
-import React, { useState, useMemo, memo, useTransition, useEffect } from 'react'
+import React, { useState, useMemo, memo, useEffect } from 'react'
 import Link from 'next/link'
 import { usePublicAccess } from '@/context/PublicAccessContext'
 import AIChat from '../AIChat'
@@ -14,7 +14,6 @@ const AppShell = memo(function AppShell({ children }: { children: React.ReactNod
     const router = useRouter()
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const pathname = usePathname()
-    const [isPending, startTransition] = useTransition()
 
     const handleLogout = React.useCallback(() => {
         logout()
@@ -155,14 +154,7 @@ const AppShell = memo(function AppShell({ children }: { children: React.ReactNod
                         <div className="w-8 h-8" />
                     </header>
 
-                    {/* Loading Indicator */}
-                    {isPending && (
-                        <div className="absolute top-0 left-0 right-0 h-1 bg-apeel-green/20 z-50">
-                            <div className="h-full bg-apeel-green animate-[loading_1s_ease-in-out_infinite]" style={{ width: '30%' }} />
-                        </div>
-                    )}
-
-                    <div className={`flex-1 h-full overflow-y-auto transition-opacity duration-200 ${isPending ? 'opacity-50' : 'opacity-100'}`}>
+                    <div className="flex-1 h-full overflow-y-auto">
                         {children}
                     </div>
                 </main>

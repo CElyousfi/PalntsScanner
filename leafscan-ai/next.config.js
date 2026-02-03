@@ -29,10 +29,10 @@ const nextConfig = {
     }
     return config
   },
-  // Optimize on-demand entries for SPA behavior
+  // Optimize on-demand entries for SPA behavior - ULTRA AGGRESSIVE
   onDemandEntries: {
-    maxInactiveAge: 120 * 1000, // Keep pages in memory for 2 minutes
-    pagesBufferLength: 10, // Keep 10 pages in buffer (all dashboard pages)
+    maxInactiveAge: 300 * 1000, // Keep pages in memory for 5 minutes
+    pagesBufferLength: 20, // Keep 20 pages in buffer
   },
   // Enable SWC minification for faster builds
   swcMinify: true,

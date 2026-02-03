@@ -14,7 +14,7 @@ const nextConfig = {
     removeConsole: false, // Keep console logs for debugging
   },
   // Suppress browser extension errors and warnings
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, dev }) => {
     if (!isServer) {
       // Ignore browser extension errors
       config.ignoreWarnings = [
@@ -24,15 +24,24 @@ const nextConfig = {
       // Enable aggressive caching for SPA-like experience
       config.cache = {
         type: 'memory',
-        maxGenerations: 5,
+        maxGenerations: 10, // Increased for more pages
+      }
+      
+      // In development, build everything immediately
+      if (dev) {
+        config.optimization = {
+          ...config.optimization,
+          moduleIds: 'named',
+          chunkIds: 'named',
+        }
       }
     }
     return config
   },
-  // Optimize on-demand entries for SPA behavior - ULTRA AGGRESSIVE
+  // ULTRA AGGRESSIVE - Keep ALL pages in memory forever
   onDemandEntries: {
-    maxInactiveAge: 300 * 1000, // Keep pages in memory for 5 minutes
-    pagesBufferLength: 20, // Keep 20 pages in buffer
+    maxInactiveAge: 1000 * 60 * 60, // Keep pages for 1 hour
+    pagesBufferLength: 50, // Keep 50 pages in buffer
   },
   // Enable SWC minification for faster builds
   swcMinify: true,
@@ -40,11 +49,12 @@ const nextConfig = {
   experimental: {
     optimizeCss: true, // Optimize CSS loading
     optimizePackageImports: ['lucide-react', '@supabase/supabase-js', 'framer-motion'], // Optimize imports
-    // Enable aggressive prefetching
     scrollRestoration: true,
+    // Force all pages to compile on startup
+    workerThreads: true,
+    cpus: 4, // Use multiple cores for faster compilation
   },
   // Disable static optimization for dashboard routes (force dynamic)
-  // This prevents full page reloads
   output: 'standalone',
 }
 

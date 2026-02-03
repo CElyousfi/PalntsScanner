@@ -4,6 +4,8 @@
   "description": "AI-Powered Plant Disease Diagnosis Tool",
   "scripts": {
     "dev": "next dev",
+    "dev-fast": "next dev & sleep 5 && node scripts/warmup-pages.js",
+    "warmup": "node scripts/warmup-pages.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

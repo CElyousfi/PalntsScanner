@@ -1,17 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import ImageUpload from '@/components/ImageUpload'
 import DiagnosisReport from '@/components/DiagnosisReport'
 import Header from '@/components/Header'
 import ImpactStats from '@/components/ImpactStats'
 import LoadingScreen from '@/components/LoadingScreen'
 import LocationInput from '@/components/LocationInput'
-import TreatmentPlanner from '@/components/TreatmentPlanner'
-import AIChat from '@/components/AIChat'
 import ApplicationsSlider from '@/components/ApplicationsSlider'
 import { History } from 'lucide-react'
-import MonitoringDashboard from '@/components/MonitoringDashboard'
 import HistorySidebar from '@/components/HistorySidebar'
 import { db } from '@/lib/db'
 import { DiagnosisResult, LocationData, Session } from '@/types'
@@ -19,6 +17,22 @@ import { ArrowRight, Leaf, Shield, Smartphone, Globe, Github, BookOpen, Activity
 
 import { useLanguage } from '@/context/LanguageContext'
 import { createSessionFromDiagnosis, STORAGE_KEY as SESSION_KEY } from '@/lib/farm-session'
+
+// Lazy load heavy components
+const AIChat = dynamic(() => import('@/components/AIChat'), {
+  loading: () => <div className="flex items-center justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div></div>,
+  ssr: false
+})
+
+const MonitoringDashboard = dynamic(() => import('@/components/MonitoringDashboard'), {
+  loading: () => <div className="flex items-center justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div></div>,
+  ssr: false
+})
+
+const TreatmentPlanner = dynamic(() => import('@/components/TreatmentPlanner'), {
+  loading: () => <div className="flex items-center justify-center p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div></div>,
+  ssr: false
+})
 
 export default function Home() {
   const { t, dir, language } = useLanguage()
@@ -29,6 +43,7 @@ export default function Home() {
   const [location, setLocation] = useState<LocationData | null>(null)
   const [showTreatmentPlanner, setShowTreatmentPlanner] = useState(false)
   const [showChat, setShowChat] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
   const [activeTab, setActiveTab] = useState<'scan' | 'history'>('scan')
   const [analyzeStep, setAnalyzeStep] = useState<'idle' | 'uploading' | 'processing' | 'scanning' | 'tools' | 'finalizing' | 'complete'>('idle')
   const [monitoringPlan, setMonitoringPlan] = useState<any | null>(null) // State for the active monitoring plan
@@ -304,8 +319,13 @@ export default function Home() {
       {/* Sidebar for History */}
       <HistorySidebar
         sessions={sessions}
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
+        onSelectSession={handleRestoreSession}
         onRestore={handleRestoreSession}
         onDelete={handleDeleteSession}
+        onDeleteSession={handleDeleteSession}
+        onNewAnalysis={handleReset}
       />
 
       <main>

@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { signUp } from '@/lib/auth'
 import { Leaf, Mail, Lock, User, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -35,14 +34,31 @@ export default function SignUpPage() {
     }
 
     try {
-      await signUp(email, password, name)
+      console.log('[Signup] Calling server-side signup API...')
+      
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, name }),
+        credentials: 'include',
+      })
+
+      const json = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(json.error || 'Failed to create account')
+      }
+
+      console.log('[Signup] Server signup successful:', json.user?.email)
       setSuccess(true)
       
       // Redirect to dashboard after 2 seconds
       setTimeout(() => {
-        router.push('/dashboard')
+        router.replace('/dashboard')
+        router.refresh()
       }, 2000)
     } catch (err: any) {
+      console.error('[Signup] Error:', err)
       setError(err.message || 'Failed to create account')
     } finally {
       setLoading(false)

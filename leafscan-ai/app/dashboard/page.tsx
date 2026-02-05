@@ -1,130 +1,127 @@
 'use client'
 
-import { useEffect, memo } from 'react'
-import VitalsWidget from '@/components/dashboard/VitalsWidget'
-import CoachingWidget from '@/components/dashboard/CoachingWidget'
-import AutonomyLog from '@/components/dashboard/AutonomyLog'
-import ThreatGrid from '@/components/dashboard/ThreatGrid'
-import GrowthProgressWidget from '@/components/dashboard/GrowthProgressWidget'
-import IncidentWidget from '@/components/dashboard/IncidentWidget'
-import PlantSwitcher from '@/components/dashboard/PlantSwitcher'
-import { useRouter } from 'next/navigation'
-import { useMission } from '@/context/MissionContext'
-import { Search, Zap, MoreHorizontal, FileText } from 'lucide-react'
+import { useAuth } from '@/context/AuthContext'
+import { Sprout, History, Activity, Map, Brain, BookOpen, MessageSquare, Beaker } from 'lucide-react'
+import Link from 'next/link'
 
-const DashboardPage = memo(function DashboardPage() {
-    const { mission, isLoading } = useMission()
-    const router = useRouter()
+export default function DashboardHome() {
+  const { user } = useAuth()
 
-    useEffect(() => {
-        if (!isLoading && !mission) {
-            router.push('/onboarding')
-        }
-    }, [isLoading, mission, router])
-
-    if (isLoading) {
-        return (
-            <div className="flex items-center justify-center h-screen">
-                <div className="w-12 h-12 border-4 border-apeel-green border-t-transparent rounded-full animate-spin" />
-            </div>
-        )
+  const dashboardLinks = [
+    {
+      href: '/dashboard/scan',
+      icon: Sprout,
+      title: 'New Scan',
+      description: 'Upload and analyze plant images',
+      color: 'bg-green-500'
+    },
+    {
+      href: '/dashboard/history',
+      icon: History,
+      title: 'History',
+      description: 'View past diagnoses',
+      color: 'bg-blue-500'
+    },
+    {
+      href: '/dashboard/vitals',
+      icon: Activity,
+      title: 'Vitals',
+      description: 'Monitor crop health metrics',
+      color: 'bg-purple-500'
+    },
+    {
+      href: '/dashboard/threat-map',
+      icon: Map,
+      title: 'Threat Map',
+      description: 'Disease outbreak locations',
+      color: 'bg-red-500'
+    },
+    {
+      href: '/dashboard/autonomy',
+      icon: Brain,
+      title: 'Autonomy',
+      description: 'Autonomous farm management',
+      color: 'bg-indigo-500'
+    },
+    {
+      href: '/dashboard/notes',
+      icon: BookOpen,
+      title: 'Notes',
+      description: 'Farm management notes',
+      color: 'bg-amber-500'
+    },
+    {
+      href: '/dashboard/notes-notebook',
+      icon: MessageSquare,
+      title: 'Notebook',
+      description: 'Advanced note-taking',
+      color: 'bg-teal-500'
+    },
+    {
+      href: '/dashboard/lab',
+      icon: Beaker,
+      title: 'Lab',
+      description: 'Experimental features',
+      color: 'bg-pink-500'
     }
+  ]
 
-    if (!mission) {
-        return null
-    }
-
-    return (
-        <div className="flex flex-col h-full p-8">
-            {/* Header */}
-            <div className="mb-8 animate-fade-in-down">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div>
-                        <div className="badge badge-info mb-4">
-                            <FileText className="w-4 h-4" />
-                            Dashboard Overview
-                        </div>
-                        <h1 className="text-5xl md:text-6xl font-bold text-apeel-black">
-                            Crop Command Center
-                        </h1>
-                        <p className="text-gray-600 mt-2">Monitor and manage your crop health in real-time</p>
-                    </div>
-
-                    <div className="flex gap-3 items-center">
-                        <PlantSwitcher />
-                        <button className="w-12 h-12 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 transition-all text-gray-700 shadow-sm">
-                            <MoreHorizontal className="w-6 h-6" />
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto hide-scrollbar">
-                <div className="max-w-7xl mx-auto space-y-6 animate-fade-in-up">
-
-                    {/* Dashboard Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                        {/* Left Column: Main Content */}
-                        <div className="lg:col-span-7 space-y-6">
-                            <IncidentWidget />
-                            
-                            <div className="card">
-                                <h3 className="text-lg font-bold mb-4 text-apeel-black flex items-center gap-2">
-                                    <Zap className="w-5 h-5 text-apeel-green" />
-                                    AI Intelligence
-                                </h3>
-                                <CoachingWidget />
-                            </div>
-                        </div>
-
-                        {/* Right Column: Widgets */}
-                        <div className="lg:col-span-5 space-y-6">
-                            {/* Vitals Card */}
-                            <div className="card">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="font-bold text-apeel-black">Live Vitals</h3>
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                                        <span className="text-xs text-gray-500">Active</span>
-                                    </div>
-                                </div>
-                                <VitalsWidget />
-                            </div>
-
-                            {/* Growth Journey */}
-                            <div className="card">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="font-bold text-apeel-black">Growth Journey</h3>
-                                    <span className="badge badge-success text-xs">Stage 8</span>
-                                </div>
-                                <GrowthProgressWidget />
-                            </div>
-
-                            {/* Threat Grid */}
-                            <div className="card cursor-pointer hover-lift" onClick={() => router.push('/dashboard/threat-map')}>
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="font-bold text-apeel-black">Threat Grid</h3>
-                                    <span className="text-xs text-gray-500">24 Sensors</span>
-                                </div>
-                                <ThreatGrid />
-                            </div>
-
-                            <AutonomyLog />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Floating Action Button */}
-            <button
-                onClick={() => router.push('/dashboard/scan')}
-                className="fixed bottom-8 right-8 w-16 h-16 bg-apeel-green text-white rounded-full shadow-2xl hover:shadow-3xl transition-all hover:scale-110 active:scale-95 flex items-center justify-center z-30"
-            >
-                <Search className="w-6 h-6" />
-            </button>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
+      <div className="max-w-7xl mx-auto px-6 py-12">
+        {/* Header */}
+        <div className="mb-12">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            Welcome back{user?.email ? `, ${user.email.split('@')[0]}` : ''}!
+          </h1>
+          <p className="text-gray-600">
+            Choose a tool to manage your crops and diagnose plant health
+          </p>
         </div>
-    )
-})
 
-export default DashboardPage
+        {/* Dashboard Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {dashboardLinks.map((link) => {
+            const Icon = link.icon
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="group relative bg-white rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 hover:border-green-200 hover:-translate-y-1"
+              >
+                <div className={`${link.color} w-12 h-12 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                  <Icon className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">
+                  {link.title}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {link.description}
+                </p>
+                <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="w-2 h-2 bg-green-500 rounded-full" />
+                </div>
+              </Link>
+            )
+          })}
+        </div>
+
+        {/* Quick Stats */}
+        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white rounded-xl p-6 border border-gray-100">
+            <div className="text-sm text-gray-600 mb-1">Total Scans</div>
+            <div className="text-3xl font-bold text-gray-900">-</div>
+          </div>
+          <div className="bg-white rounded-xl p-6 border border-gray-100">
+            <div className="text-sm text-gray-600 mb-1">Active Monitoring</div>
+            <div className="text-3xl font-bold text-gray-900">-</div>
+          </div>
+          <div className="bg-white rounded-xl p-6 border border-gray-100">
+            <div className="text-sm text-gray-600 mb-1">Health Score</div>
+            <div className="text-3xl font-bold text-green-600">-</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

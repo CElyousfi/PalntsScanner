@@ -4,6 +4,7 @@ import './globals.css'
 import { LanguageProvider } from '@/context/LanguageContext'
 import { AuthProvider } from '@/context/AuthContext'
 import { MissionProvider } from '@/context/MissionContext'
+import { AutonomyProvider } from '@/context/AutonomyContext'
 import ErrorSuppressor from '@/components/ErrorSuppressor'
 import GlobalStateSync from '@/components/GlobalStateSync'
 
@@ -32,9 +33,11 @@ export default function RootLayout({
         <GlobalStateSync />
         <LanguageProvider>
           <AuthProvider>
-            <MissionProvider>
-              {children}
-            </MissionProvider>
+            <AutonomyProvider>
+              <MissionProvider>
+                {children}
+              </MissionProvider>
+            </AutonomyProvider>
           </AuthProvider>
         </LanguageProvider>
       </body>

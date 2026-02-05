@@ -93,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
             setUser(profile)
             initializeSystem(profile.id)
-            router.push('/dashboard')
+            // Don't redirect here - let the calling page handle it
         }
     }
 
@@ -108,12 +108,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
             setUser(profile)
             initializeSystem(profile.id)
-            router.push('/dashboard')
+            // Don't redirect here - let the calling page handle it
         }
     }
 
     const logout = async () => {
-        await supabaseSignOut()
+        try {
+            await fetch('/api/auth/signout', { method: 'POST' })
+        } catch (error) {
+            console.error('[AuthContext] Logout error:', error)
+        }
         setUser(null)
         localStorage.removeItem('leafscan_v2_system')
         router.push('/auth/login')

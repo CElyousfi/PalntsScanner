@@ -1,17 +1,17 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { signIn } from '@/lib/auth'
+import { useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Leaf, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -19,9 +19,30 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      await signIn(email, password)
-      router.push('/dashboard')
+      console.log('[Login] Calling server-side signin API...')
+      
+      const response = await fetch('/api/auth/signin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+        credentials: 'include',
+      })
+
+      const json = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(json.error || 'Failed to sign in')
+      }
+
+      console.log('[Login] Server signin successful:', json.user?.email)
+      
+      const redirect = searchParams.get('redirect') || '/dashboard'
+      console.log('[Login] Redirecting to:', redirect)
+      
+      router.replace(redirect)
+      router.refresh()
     } catch (err: any) {
+      console.error('[Login] Error:', err)
       setError(err.message || 'Failed to sign in')
     } finally {
       setLoading(false)
@@ -128,5 +149,17 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-apeel-green to-[#1e3a29] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }

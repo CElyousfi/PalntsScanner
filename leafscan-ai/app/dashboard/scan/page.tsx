@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import ImageUpload from '@/components/ImageUpload'
 import DiagnosisReport from '@/components/DiagnosisReport'
-import LoadingScreen from '@/components/LoadingScreen'
-import AIChat from '@/components/AIChat'
+import GrowthLoader from '@/components/loader/GrowthLoader'
 import TreatmentPlanner from '@/components/TreatmentPlanner'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
@@ -12,40 +13,128 @@ import { useAutonomy } from '@/hooks/useAutonomy'
 import { DiagnosisResult, ActionRescueResult } from '@/types'
 import { saveSystemState, saveAnalysisToHistory, saveAnalysisToHistoryAsync, updateHistoryEntry, saveGrowthEntry } from '@/lib/store'
 import PageShell from '@/components/dashboard/PageShell'
-import { Leaf } from 'lucide-react'
+import { Leaf, Apple, Sparkles, AlertTriangle } from 'lucide-react'
 
-export default function ScanPage() {
+// Lazy load ProduceReport for better performance
+const ProduceReport = dynamic(() => import('@/components/ProduceReport'), {
+    loading: () => <GrowthLoader mode="crop" stage="visual" />
+})
+
+type ScanMode = 'leaf' | 'crop'
+
+export default function UnifiedScanPage() {
     const router = useRouter()
+    const searchParams = useSearchParams()
     const { user } = useAuth()
     const { system, refresh, toggleChat, setChatContext } = useAutonomy()
 
-    // Scan State
+    // Mode state - check URL param first
+    const [mode, setMode] = useState<ScanMode>('leaf')
+
+    // Scan State (shared between modes)
     const [step, setStep] = useState<'upload' | 'analyzing' | 'result'>('upload')
     const [uploadedImage, setUploadedImage] = useState<string | null>(null)
+    const [validationError, setValidationError] = useState<{ title: string, message: string } | null>(null)
+
+    // Leaf scan state
     const [diagnosis, setDiagnosis] = useState<DiagnosisResult | null>(null)
     const [actionResult, setActionResult] = useState<ActionRescueResult | null>(null)
-    const [isChatOpen, setIsChatOpen] = useState(false)
-    const [isPlannerOpen, setIsPlannerOpen] = useState(false)
-    const [chatInitialQuery, setChatInitialQuery] = useState<string | undefined>(undefined)
     const [currentScanId, setCurrentScanId] = useState<string | null>(null)
     const [showGrowthSaved, setShowGrowthSaved] = useState(false)
 
-    const handleUpload = async (file: File) => {
-        setStep('analyzing')
+    // Crop scan state
+    const [produceResults, setProduceResults] = useState<any>(null)
 
-        // Convert to Base64
+    // UI state
+    const [isPlannerOpen, setIsPlannerOpen] = useState(false)
+    const [chatInitialQuery, setChatInitialQuery] = useState<string | undefined>(undefined)
+
+    const resultsRef = useRef<HTMLDivElement>(null)
+
+    // Check URL params on mount
+    useEffect(() => {
+        const urlMode = searchParams?.get('mode')
+        if (urlMode === 'crop') {
+            setMode('crop')
+        }
+    }, [searchParams])
+
+    // Auto-scroll to results
+    useEffect(() => {
+        if (step === 'result') {
+            setTimeout(() => {
+                resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }, 100)
+        }
+    }, [step])
+
+    const handleUpload = async (file: File) => {
+        setValidationError(null)
+
+        // 1. Client-side Fast Checks
+        if (file.size > 10 * 1024 * 1024) { // 10MB
+            setValidationError({
+                title: "File too large",
+                message: "Please upload an image smaller than 10MB."
+            })
+            return
+        }
+
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+            setValidationError({
+                title: "Invalid file type",
+                message: "Please upload a JPG, PNG, or WebP image."
+            })
+            return
+        }
+
         const reader = new FileReader()
         reader.onloadend = async () => {
             const base64 = reader.result as string
             setUploadedImage(base64)
-            await analyze(base64)
+            setStep('analyzing')
+
+            // 2. AI Preflight Check
+            try {
+                const preflightRes = await fetch('/api/analyze-preflight', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: base64, mode })
+                })
+                const preflight = await preflightRes.json()
+
+                if (!preflight.ok) {
+                    setStep('upload')
+                    setValidationError({
+                        title: "We couldn't verify this image",
+                        message: preflight.reason || `This doesn't look like a ${mode === 'leaf' ? 'plant leaf' : 'produce item'}. Please ensure the subject is centered and clearly visible.`
+                    })
+                    return
+                }
+
+                // 3. Proceed to Full Analysis
+                if (mode === 'leaf') {
+                    await analyzeLeaf(base64)
+                } else {
+                    await analyzeCrop(base64)
+                }
+
+            } catch (err) {
+                console.error("Preflight failed, failing open:", err)
+                // If preflight fails technically, we allow it to proceed (fail open)
+                if (mode === 'leaf') {
+                    await analyzeLeaf(base64)
+                } else {
+                    await analyzeCrop(base64)
+                }
+            }
         }
         reader.readAsDataURL(file)
     }
 
-    const analyze = async (base64: string) => {
+    const analyzeLeaf = async (base64: string) => {
         try {
-            // Use new surgical precision endpoint
+            // Use surgical precision endpoint for leaf diagnosis
             const res = await fetch('/api/analyze-surgical', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -87,7 +176,9 @@ export default function ScanPage() {
                             timestamp: Date.now(),
                             image: compressedImage,
                             diagnosis: diagnosisWithId, // Save with ID
-                            actionResult: null
+                            actionResult: null,
+                            scanType: 'leaf',
+                            notes: ''
                         }).catch(err => {
                             console.error('[Scan] Error saving to database:', err)
                             // Fallback to localStorage only
@@ -97,7 +188,9 @@ export default function ScanPage() {
                                 timestamp: Date.now(),
                                 image: compressedImage,
                                 diagnosis: diagnosisWithId,
-                                actionResult: null
+                                actionResult: null,
+                                scanType: 'leaf',
+                                notes: ''
                             })
                         })
 
@@ -189,7 +282,7 @@ export default function ScanPage() {
 
             } else {
                 console.error('[Scan Page] Analysis failed - no success flag')
-                
+
                 // Check if it's a rate limit error
                 if (data.error === 'RATE_LIMIT_EXCEEDED') {
                     alert(`⚠️ Gemini API Rate Limit Exceeded\n\n${data.message}\n\nSuggestion: ${data.details?.suggestion || 'Wait a few minutes and try again'}`)
@@ -203,20 +296,160 @@ export default function ScanPage() {
             alert('Network error. Please check your connection and try again.')
             setStep('upload')
         }
+    }
 
+    const analyzeCrop = async (base64: string) => {
+        try {
+            const res = await fetch('/api/analyze-produce', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: base64 })
+            })
+            
+            const data = await res.json()
+            
+            if (data.success) {
+                setProduceResults(data.results)
+                setStep('result')
+
+                if (data.demoMode) {
+                    console.log('ℹ️ Using demo data (API unavailable)')
+                } else {
+                    console.log('✅ Real AI analysis completed successfully')
+                }
+
+                // Save crop scan to history
+                if (system) {
+                    compressImage(base64).then((compressedImage) => {
+                        const scanId = crypto.randomUUID()
+                        setCurrentScanId(scanId)
+
+                        const targetPlantId = system.activeProfileId || system.profiles?.[0]?.id || 'unknown'
+
+                        // Create a minimal diagnosis for crop scans
+                        const cropDiagnosis: DiagnosisResult = {
+                            id: scanId,
+                            cropType: data.results?.produceType || 'Produce',
+                            diseases: [],
+                            symptoms: [],
+                            causes: [],
+                            organicTreatments: [],
+                            chemicalTreatments: [],
+                            preventionTips: [],
+                            additionalInfo: `Quality Grade: ${data.results?.grade || 'N/A'}`,
+                            severity: 'low'
+                        }
+
+                        // Save to both localStorage AND Supabase
+                        saveAnalysisToHistoryAsync(user?.id || '', {
+                            id: scanId,
+                            plantId: targetPlantId,
+                            timestamp: Date.now(),
+                            image: compressedImage,
+                            diagnosis: cropDiagnosis,
+                            actionResult: null,
+                            scanType: 'crop',
+                            notes: '',
+                            produceResults: data.results
+                        }).catch(err => {
+                            console.error('[Crop Scan] Error saving to database:', err)
+                            // Fallback to localStorage only
+                            saveAnalysisToHistory({
+                                id: scanId,
+                                plantId: targetPlantId,
+                                timestamp: Date.now(),
+                                image: compressedImage,
+                                diagnosis: cropDiagnosis,
+                                actionResult: null,
+                                scanType: 'crop',
+                                notes: '',
+                                produceResults: data.results
+                            })
+                        })
+
+                        console.log('[Crop Scan] ✅ Saved to history with ID:', scanId)
+                        refresh() // Refresh context to show in history
+                    })
+                }
+            } else {
+                console.error('[Crop Scan] Analysis failed:', data.error)
+                alert('Crop analysis failed. Please try again.')
+                setStep('upload')
+            }
+        } catch (error) {
+            console.error('[Crop Scan] Analysis error:', error)
+            alert('Network error. Please check your connection and try again.')
+            setStep('upload')
+        }
+    }
+
+    const handleReset = () => {
+        setStep('upload')
+        setUploadedImage(null)
+        setDiagnosis(null)
+        setActionResult(null)
+        setProduceResults(null)
+        setChatInitialQuery(undefined)
+        setValidationError(null)
+    }
+
+    const handleModeSwitch = (newMode: ScanMode) => {
+        setMode(newMode)
+        handleReset()
     }
 
     return (
         <PageShell
-            title="New Diagnosis"
-            badge={
-                <div className="badge badge-success">
-                    <Leaf className="w-4 h-4" />
-                    Crop Rescue
+            title={
+                <div className="flex items-center gap-3">
+                    {mode === 'leaf' ? <Leaf className="w-8 h-8 text-apeel-green" /> : <Apple className="w-8 h-8 text-apeel-green" />}
+                    <div>
+                        <h1 className="text-2xl font-serif font-bold">
+                            {mode === 'leaf' ? 'Leaf Diagnosis' : 'Produce Grader'}
+                        </h1>
+                        <p className="text-sm text-gray-600">
+                            {mode === 'leaf' ? 'AI-Powered Plant Health Analysis' : 'Surgical-Level Quality Assessment'}
+                        </p>
+                    </div>
                 </div>
             }
         >
-            <div className="max-w-4xl mx-auto space-y-8">
+            <div className="max-w-4xl mx-auto space-y-6">
+                {/* Mode Toggle */}
+                <div className="flex items-center justify-between mb-6">
+                    <div className="inline-flex bg-white rounded-2xl p-1 shadow-sm border border-gray-200">
+                        <button
+                            onClick={() => handleModeSwitch('leaf')}
+                            className={`px-6 py-3 rounded-xl font-semibold transition-all ${mode === 'leaf'
+                                    ? 'bg-apeel-green text-white shadow-md'
+                                    : 'text-gray-600 hover:text-gray-900'
+                                }`}
+                        >
+                            <div className="flex items-center gap-2">
+                                <Leaf className="w-4 h-4" />
+                                Leaf Scan
+                            </div>
+                        </button>
+                        <button
+                            onClick={() => handleModeSwitch('crop')}
+                            className={`px-6 py-3 rounded-xl font-semibold transition-all ${mode === 'crop'
+                                    ? 'bg-apeel-green text-white shadow-md'
+                                    : 'text-gray-600 hover:text-gray-900'
+                                }`}
+                        >
+                            <div className="flex items-center gap-2">
+                                <Apple className="w-4 h-4" />
+                                Crop Scan
+                            </div>
+                        </button>
+                    </div>
+
+                    {mode === 'leaf' && system && (
+                        <p className="text-sm text-gray-600">
+                            Target: <span className="text-apeel-green font-bold">{system.profiles.find(p => p.id === system.activeProfileId)?.name || 'Loading...'}</span>
+                        </p>
+                    )}
+                </div>
                 {/* Growth Entry Saved Notification */}
                 {showGrowthSaved && (
                     <div className="fixed top-4 right-4 z-50 bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-fade-in">
@@ -232,29 +465,57 @@ export default function ScanPage() {
                     </div>
                 )}
 
-                <div className="flex items-center justify-between mb-8 pb-6 border-b border-gray-200">
-                    <p className="text-sm text-gray-600">
-                        Target Profile: <span className="text-apeel-green font-bold text-lg ml-2">{system?.activeProfileId ? system.profiles.find(p => p.id === system.activeProfileId)?.name : 'Loading...'}</span>
-                    </p>
-                    <button onClick={() => router.push('/dashboard')} className="text-gray-400 hover:text-gray-700 font-medium text-sm transition-colors">
-                        Cancel
-                    </button>
-                </div>
-
+                {/* Main Content Card */}
                 <div className="card min-h-[500px] flex items-center justify-center relative overflow-hidden">
-
                     {step === 'upload' && (
-                        <div className="w-full max-w-xl z-10">
+                        <div className="w-full max-w-xl z-10 flex flex-col gap-6">
+                            {validationError && (
+                                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl animate-fade-in text-left">
+                                    <div className="flex items-start gap-3">
+                                        <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5" />
+                                        <div>
+                                            <h3 className="font-bold text-red-900">{validationError.title}</h3>
+                                            <p className="text-red-700 text-sm">{validationError.message}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             <ImageUpload onImageUpload={handleUpload} />
+
+                            {/* Mode-specific info */}
+                            {mode === 'crop' && (
+                                <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
+                                    <h3 className="font-bold text-blue-900 mb-3 flex items-center gap-2">
+                                        <Sparkles className="w-5 h-5" />
+                                        What We Detect
+                                    </h3>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm text-blue-800">
+                                        <div>• Russeting</div>
+                                        <div>• Stem cracks</div>
+                                        <div>• Punctures</div>
+                                        <div>• Bruises</div>
+                                        <div>• Rot & decay</div>
+                                        <div>• Scald</div>
+                                        <div>• Bitter pit</div>
+                                        <div>• Scab</div>
+                                        <div>• Lenticel breakdown</div>
+                                        <div>• Color defects</div>
+                                        <div>• Shape abnormalities</div>
+                                        <div>• And more...</div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
                     {step === 'analyzing' && (
-                        <LoadingScreen step="processing" />
+                        <GrowthLoader mode={mode} />
                     )}
 
-                    {step === 'result' && diagnosis && (
-                        <div className="w-full z-10">
+                    {/* Leaf Scan Results */}
+                    {step === 'result' && mode === 'leaf' && diagnosis && (
+                        <div className="w-full z-10" id="results" ref={resultsRef}>
                             <DiagnosisReport
                                 result={diagnosis}
                                 actionResult={actionResult}
@@ -269,13 +530,7 @@ export default function ScanPage() {
                                     })
                                     toggleChat(true)
                                 }}
-                                onReset={() => {
-                                    setStep('upload')
-                                    setDiagnosis(null)
-                                    setActionResult(null)
-                                    setChatInitialQuery(undefined)
-                                }}
-                                // IMPORTANT: We hijack "Start Monitoring" to mean "Return to Dashboard"
+                                onReset={handleReset}
                                 onStartMonitoring={() => router.push('/dashboard')}
                                 onOpenTreatmentPlanner={() => setIsPlannerOpen(true)}
                                 onOpenChat={() => {
@@ -292,26 +547,9 @@ export default function ScanPage() {
                                         if (!prev) return null
                                         return {
                                             ...prev,
-                                            visualGuides: {
-                                                ...prev.visualGuides,
-                                                [prompt]: imageUrl
-                                            }
                                         }
-                                    })
-
-                                    // PERSIST TO STORAGE
-                                    if (currentScanId) {
-                                        updateHistoryEntry(currentScanId, (entry) => ({
-                                            ...entry,
-                                            diagnosis: {
-                                                ...entry.diagnosis,
-                                                visualGuides: {
-                                                    ...(entry.diagnosis.visualGuides || {}),
-                                                    [prompt]: imageUrl
-                                                }
-                                            }
-                                        }))
                                     }
+                                })
                                 }}
                                 onExploreAction={(actionContext) => {
                                     setChatContext({
@@ -322,6 +560,30 @@ export default function ScanPage() {
                                     })
                                     toggleChat(true)
                                 }}
+                            />
+                        </div>
+                    )}
+
+                    {/* Crop Scan Results */}
+                    {step === 'result' && mode === 'crop' && uploadedImage && produceResults && (
+                        <div className="w-full z-10" id="results" ref={resultsRef}>
+                            <div className="flex justify-between items-center mb-6">
+                                <div>
+                                    <h2 className="text-2xl font-serif font-bold text-gray-900">Analysis Complete</h2>
+                                    <p className="text-gray-600">Surgical-level precision grading</p>
+                                </div>
+                                <button
+                                    onClick={handleReset}
+                                    className="px-6 py-3 bg-apeel-green text-white rounded-2xl hover:bg-apeel-green/90 transition-all font-bold shadow-lg"
+                                >
+                                    Scan Another
+                                </button>
+                            </div>
+
+                            <ProduceReport
+                                image={uploadedImage}
+                                results={produceResults}
+                                onClose={handleReset}
                             />
                         </div>
                     )}

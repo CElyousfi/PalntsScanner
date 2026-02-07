@@ -56,6 +56,32 @@ const nextConfig = {
   },
   // Disable static optimization for dashboard routes (force dynamic)
   output: 'standalone',
+  
+  // Redirects for deprecated routes (UI consolidation)
+  async redirects() {
+    return [
+      {
+        source: '/dashboard/autonomy',
+        destination: '/dashboard/scan',
+        permanent: false,
+      },
+      {
+        source: '/dashboard/lab',
+        destination: '/dashboard/scan',
+        permanent: false,
+      },
+      {
+        source: '/dashboard/notes-notebook',
+        destination: '/dashboard/notes',
+        permanent: false,
+      },
+      {
+        source: '/dashboard/vitals',
+        destination: '/dashboard/scan?mode=crop',
+        permanent: false,
+      },
+    ]
+  },
 }
 
 module.exports = nextConfig

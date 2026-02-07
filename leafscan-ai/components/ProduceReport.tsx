@@ -1,7 +1,6 @@
-'use client'
-
 import { useState, useEffect, useRef } from 'react'
-import { Scale, Ruler, Eye, TrendingUp, AlertCircle, CheckCircle2, Apple, Info, BookOpen, Play } from 'lucide-react'
+import { Scale, Ruler, Eye, TrendingUp, AlertCircle, CheckCircle2, Apple, Info, BookOpen, Play, Maximize2 } from 'lucide-react'
+import ImageLightbox from '@/components/ui/ImageLightbox'
 
 interface ProduceReportProps {
   image: string
@@ -15,6 +14,7 @@ export default function ProduceReport({ image, results, onClose }: ProduceReport
   const [showTutorial, setShowTutorial] = useState(false)
   const [tutorialData, setTutorialData] = useState<any>(null)
   const [loadingTutorial, setLoadingTutorial] = useState(false)
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false)
   const imageRef = useRef<HTMLImageElement>(null)
 
   useEffect(() => {
@@ -74,6 +74,43 @@ export default function ProduceReport({ image, results, onClose }: ProduceReport
 
   return (
     <div className="space-y-6">
+      <ImageLightbox
+        isOpen={isLightboxOpen}
+        onClose={() => setIsLightboxOpen(false)}
+        imageSrc={image}
+        altText={`Analyzed ${results.variety.name}`}
+      >
+        {results.areas?.map((area: any) => (
+          <div
+            key={area.id}
+            className={`absolute border-4 rounded-full transition-all ${area.severity === 'Critical'
+                ? 'border-red-500 bg-red-500/20'
+                : 'border-orange-500 bg-orange-500/20'
+              }`}
+            style={{
+              left: `${(area.center_x - area.radius) * 100}%`,
+              top: `${(area.center_y - area.radius) * 100}%`,
+              width: `${area.radius * 2 * 100}%`,
+              height: `${area.radius * 2 * 100}%` // Assuming image aspect ratio isn't distorted or radius is relative to width and we want circle.
+              // Actually radius seems to be relative to width in the pixel calc (r = area.radius * width).
+              // If we want a perfect circle in % on a potentially non-square image, % height might distort if aspect ratio != 1.
+              // BETTER: Use aspect ratio agnostic positioning if possible, OR just trust the visual overlay.
+              // For this strictly controlled lightbox where image fits, we can use standard % positioning.
+              // However, 'height' in % is relative to parent height.
+              // If area.radius is normalized to WIDTH, then height needs to be adjusted by aspect ratio.
+              // But we don't have aspect ratio easy here.
+              // Let's rely on standard box model for now.
+            }}
+          >
+            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-white px-2 py-1 rounded-lg shadow-lg text-sm font-bold border border-gray-200 whitespace-nowrap z-50">
+              <span className={area.severity === 'Critical' ? 'text-red-600' : 'text-orange-600'}>
+                #{area.id} {area.label}
+              </span>
+            </div>
+          </div>
+        ))}
+      </ImageLightbox>
+
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left: Image with Defect Highlights */}
@@ -90,7 +127,17 @@ export default function ProduceReport({ image, results, onClose }: ProduceReport
             )}
           </div>
 
-          <div className="relative">
+          <div className="relative group">
+            <div className="absolute top-4 right-4 z-20">
+              <button
+                onClick={() => setIsLightboxOpen(true)}
+                className="bg-black/50 hover:bg-black/70 text-white p-2 rounded-full backdrop-blur-sm transition-all"
+                title="Zoom Image"
+              >
+                <Maximize2 className="w-5 h-5" />
+              </button>
+            </div>
+
             <img
               ref={imageRef}
               src={image}
@@ -115,13 +162,12 @@ export default function ProduceReport({ image, results, onClose }: ProduceReport
               return (
                 <div
                   key={area.id}
-                  className={`absolute border-4 rounded-full cursor-pointer transition-all ${
-                    selectedDefect === area.id
-                      ? 'border-red-500 bg-red-500/30 scale-110'
-                      : area.severity === 'Critical'
+                  className={`absolute border-4 rounded-full cursor-pointer transition-all ${selectedDefect === area.id
+                    ? 'border-red-500 bg-red-500/30 scale-110'
+                    : area.severity === 'Critical'
                       ? 'border-red-500 bg-red-500/20 hover:bg-red-500/30'
                       : 'border-orange-500 bg-orange-500/20 hover:bg-orange-500/30'
-                  }`}
+                    }`}
                   style={{
                     left: `${cx - r}px`,
                     top: `${cy - r}px`,
@@ -138,7 +184,7 @@ export default function ProduceReport({ image, results, onClose }: ProduceReport
             })}
 
             {/* Grade Badge */}
-            <div className={`absolute bottom-4 left-4 bg-gradient-to-r ${getGradeColor(results.grading.grade_eu || results.grading.grade)} px-6 py-3 rounded-2xl text-white shadow-xl`}>
+            <div className={`absolute bottom-4 left-4 bg-gradient-to-r ${getGradeColor(results.grading.grade_eu || results.grading.grade)} px-6 py-3 rounded-2xl text-white shadow-xl pointer-events-none`}>
               <div className="text-xs font-bold uppercase tracking-wider opacity-90">Grade</div>
               <div className="text-2xl font-bold">{results.grading.grade_eu || results.grading.grade}</div>
               {results.grading.grade_usda && (
@@ -283,11 +329,10 @@ export default function ProduceReport({ image, results, onClose }: ProduceReport
 
               {/* Sustainability Impact */}
               {results.sustainability_impact && (
-                <div className={`p-4 rounded-2xl border ${
-                  results.sustainability_impact.includes('Low') ? 'bg-green-50 border-green-100' :
+                <div className={`p-4 rounded-2xl border ${results.sustainability_impact.includes('Low') ? 'bg-green-50 border-green-100' :
                   results.sustainability_impact.includes('Medium') ? 'bg-yellow-50 border-yellow-100' :
-                  'bg-red-50 border-red-100'
-                }`}>
+                    'bg-red-50 border-red-100'
+                  }`}>
                   <div className="font-bold text-gray-900 mb-1">Sustainability Impact</div>
                   <div className="text-sm text-gray-700">{results.sustainability_impact}</div>
                 </div>
@@ -306,11 +351,10 @@ export default function ProduceReport({ image, results, onClose }: ProduceReport
               {results.areas?.map((area: any) => (
                 <div
                   key={area.id}
-                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
-                    selectedDefect === area.id
-                      ? 'border-apeel-green bg-green-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${selectedDefect === area.id
+                    ? 'border-apeel-green bg-green-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                    }`}
                   onClick={() => setSelectedDefect(selectedDefect === area.id ? null : area.id)}
                 >
                   <div className="flex items-start justify-between mb-2">
@@ -346,11 +390,10 @@ export default function ProduceReport({ image, results, onClose }: ProduceReport
                       {area.depth_inference && (
                         <>
                           <span className="text-gray-500">Depth:</span>
-                          <span className={`font-medium px-2 py-0.5 rounded ${
-                            area.depth_inference === 'Surface only' ? 'bg-green-100 text-green-700' :
+                          <span className={`font-medium px-2 py-0.5 rounded ${area.depth_inference === 'Surface only' ? 'bg-green-100 text-green-700' :
                             area.depth_inference === 'Subsurface' ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-red-100 text-red-700'
-                          }`}>
+                              'bg-red-100 text-red-700'
+                            }`}>
                             {area.depth_inference}
                           </span>
                         </>
@@ -436,7 +479,7 @@ export default function ProduceReport({ image, results, onClose }: ProduceReport
               <div className="text-gray-700 leading-relaxed bg-blue-50 p-4 rounded-xl border border-blue-100">
                 {results.storage_recommendations}
               </div>
-              
+
               {/* Quick Tutorial Buttons */}
               <div className="mt-3 flex flex-wrap gap-2">
                 <button

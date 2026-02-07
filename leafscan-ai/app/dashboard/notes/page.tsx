@@ -17,7 +17,7 @@ function contentToNotebook(content: string, noteId: string, noteTitle: string): 
     if (parsed.cells && Array.isArray(parsed.cells)) {
       return parsed as Notebook
     }
-  } catch {}
+  } catch { }
 
   const cells: NotebookCell[] = [{
     id: `cell_${Date.now()}_0`,
@@ -56,7 +56,7 @@ export default function NotesPage() {
     } else {
       setNotebook(null)
     }
-  }, [activeNote?.id])
+  }, [activeNote?.id, activeNote?.updatedAt])
 
   const handleTitleSave = () => {
     if (activeNote && titleInput.trim()) {
@@ -82,101 +82,100 @@ export default function NotesPage() {
         {/* Notes List Sidebar */}
         <NotesSidebar />
 
-      {/* Main Editor Area */}
-      <div className="flex-1 flex flex-col">
-        {/* Note Header */}
-        {activeNote && (
-          <div className="border-b border-gray-200 bg-white px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                {showTitleEdit ? (
-                  <input
-                    type="text"
-                    value={titleInput}
-                    onChange={(e) => setTitleInput(e.target.value)}
-                    onBlur={handleTitleSave}
-                    onKeyPress={(e) => e.key === 'Enter' && handleTitleSave()}
-                    className="text-2xl font-bold border-b-2 border-apeel-green focus:outline-none w-full"
-                    autoFocus
-                  />
-                ) : (
-                  <h1
-                    onClick={() => {
-                      setTitleInput(activeNote.title)
-                      setShowTitleEdit(true)
-                    }}
-                    className="text-2xl font-bold text-apeel-black cursor-pointer hover:text-apeel-green transition-colors"
-                  >
-                    {activeNote.title}
-                  </h1>
-                )}
-
-                <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    <span>
-                      Updated {new Date(activeNote.updatedAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <FileText className="w-4 h-4" />
-                    <span>{activeNote.metadata.wordCount} words</span>
-                  </div>
-                  {activeNote.tags.length > 0 && (
-                    <div className="flex items-center gap-1">
-                      <Tag className="w-4 h-4" />
-                      <div className="flex gap-1">
-                        {activeNote.tags.map((tag, i) => (
-                          <span
-                            key={i}
-                            className="px-2 py-0.5 bg-gray-100 rounded text-xs"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
+        {/* Main Editor Area */}
+        <div className="flex-1 flex flex-col">
+          {/* Note Header */}
+          {activeNote && (
+            <div className="border-b border-gray-200 bg-white px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  {showTitleEdit ? (
+                    <input
+                      type="text"
+                      value={titleInput}
+                      onChange={(e) => setTitleInput(e.target.value)}
+                      onBlur={handleTitleSave}
+                      onKeyPress={(e) => e.key === 'Enter' && handleTitleSave()}
+                      className="text-2xl font-bold border-b-2 border-apeel-green focus:outline-none w-full"
+                      autoFocus
+                    />
+                  ) : (
+                    <h1
+                      onClick={() => {
+                        setTitleInput(activeNote.title)
+                        setShowTitleEdit(true)
+                      }}
+                      className="text-2xl font-bold text-apeel-black cursor-pointer hover:text-apeel-green transition-colors"
+                    >
+                      {activeNote.title}
+                    </h1>
                   )}
+
+                  <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="w-4 h-4" />
+                      <span>
+                        Updated {new Date(activeNote.updatedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <FileText className="w-4 h-4" />
+                      <span>{activeNote.metadata.wordCount} words</span>
+                    </div>
+                    {activeNote.tags.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        <Tag className="w-4 h-4" />
+                        <div className="flex gap-1">
+                          {activeNote.tags.map((tag, i) => (
+                            <span
+                              key={i}
+                              className="px-2 py-0.5 bg-gray-100 rounded text-xs"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => updateNote(activeNote.id, { isPinned: !activeNote.isPinned })}
-                  className={`p-2 rounded-lg transition-colors ${
-                    activeNote.isPinned
-                      ? 'bg-yellow-100 text-yellow-600'
-                      : 'hover:bg-gray-100 text-gray-400'
-                  }`}
-                >
-                  <Star className="w-5 h-5" fill={activeNote.isPinned ? 'currentColor' : 'none'} />
-                </button>
-                <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                  <MoreVertical className="w-5 h-5 text-gray-400" />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Notebook Editor */}
-        <div className="flex-1 overflow-y-auto bg-gray-50">
-          {notebook ? (
-            <NotebookEditor
-              notebook={notebook}
-              onChange={handleNotebookChange}
-            />
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-gray-400">
-              <div className="text-center">
-                <BookOpen className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <p className="text-lg">Select a note to start editing</p>
-                <p className="text-sm mt-2">Or create a new notebook</p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => updateNote(activeNote.id, { isPinned: !activeNote.isPinned })}
+                    className={`p-2 rounded-lg transition-colors ${activeNote.isPinned
+                        ? 'bg-yellow-100 text-yellow-600'
+                        : 'hover:bg-gray-100 text-gray-400'
+                      }`}
+                  >
+                    <Star className="w-5 h-5" fill={activeNote.isPinned ? 'currentColor' : 'none'} />
+                  </button>
+                  <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                    <MoreVertical className="w-5 h-5 text-gray-400" />
+                  </button>
+                </div>
               </div>
             </div>
           )}
+
+          {/* Notebook Editor */}
+          <div className="flex-1 overflow-y-auto bg-gray-50">
+            {notebook ? (
+              <NotebookEditor
+                notebook={notebook}
+                onChange={handleNotebookChange}
+              />
+            ) : (
+              <div className="flex-1 flex items-center justify-center text-gray-400">
+                <div className="text-center">
+                  <BookOpen className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg">Select a note to start editing</p>
+                  <p className="text-sm mt-2">Or create a new notebook</p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
         {/* Activity Panel */}
         <ActivityPanel />

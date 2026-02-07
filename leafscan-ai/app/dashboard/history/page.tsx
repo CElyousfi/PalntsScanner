@@ -2,14 +2,19 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { useAutonomy } from '@/hooks/useAutonomy'
-import { History, Calendar, AlertTriangle, CheckCircle2, Map, ArrowRight, Clock, Filter, TrendingUp, Leaf, Bug, Droplet } from 'lucide-react'
+import { useAuth } from '@/context/AuthContext'
+import { History, Calendar, AlertTriangle, CheckCircle2, Map, ArrowRight, Clock, Filter, TrendingUp, Leaf, Bug, Droplet, FileText, Save, Apple } from 'lucide-react'
 import PageShell from '@/components/dashboard/PageShell'
 import Image from 'next/image'
+import { updateAnalysisNotes } from '@/lib/store'
 
 export default function HistoryPage() {
     const { system, activeProfile, refresh } = useAutonomy()
+    const { user } = useAuth()
     const [filterSeverity, setFilterSeverity] = useState<string>('all')
     const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'severity'>('newest')
+    const [editingNotes, setEditingNotes] = useState<string | null>(null)
+    const [notesText, setNotesText] = useState<Record<string, string>>({})
 
     // Force refresh on mount to ensure latest data from localStorage
     useEffect(() => {
@@ -32,7 +37,7 @@ export default function HistoryPage() {
         }
 
         window.addEventListener('historyUpdated', handleHistoryUpdate as EventListener)
-        
+
         return () => {
             window.removeEventListener('historyUpdated', handleHistoryUpdate as EventListener)
         }
@@ -46,7 +51,7 @@ export default function HistoryPage() {
                 const data = JSON.parse(stored)
                 const storedCount = data.history?.length || 0
                 const currentCount = allHistory.length
-                
+
                 if (storedCount !== currentCount) {
                     console.log('[History Page] Detected history change! Stored:', storedCount, 'Current:', currentCount)
                     if (refresh) {
@@ -58,7 +63,7 @@ export default function HistoryPage() {
 
         return () => clearInterval(interval)
     }, [allHistory.length, refresh])
-    
+
     // Debug log
     useEffect(() => {
         console.log('[History Page] Current history count:', allHistory.length)
@@ -97,13 +102,14 @@ export default function HistoryPage() {
         const high = allHistory.filter(r => r.diagnosis?.severity === 'high').length
         const medium = allHistory.filter(r => r.diagnosis?.severity === 'medium').length
         const low = allHistory.filter(r => r.diagnosis?.severity === 'low').length
-        
+
         return { total, high, medium, low }
     }, [allHistory])
 
     return (
         <PageShell
             title="History Log"
+            hideControls={true}
             badge={
                 <div className="bg-[#EAE8D9] text-stone-800 text-xs px-3 py-1 rounded-full font-sans uppercase tracking-wider font-bold inline-flex items-center gap-1 shadow-sm border border-stone-300/50">
                     <Clock className="w-3 h-3" />
@@ -111,70 +117,90 @@ export default function HistoryPage() {
                 </div>
             }
         >
-            {/* Statistics Cards */}
+            {/* Statistics Cards - Interactive Filters */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100">
+                {/* Total Scans - Reset Filter */}
+                <button
+                    onClick={() => setFilterSeverity('all')}
+                    className={`bg-white rounded-2xl p-6 shadow-sm border transition-all text-left group ${filterSeverity === 'all'
+                            ? 'border-apeel-green ring-2 ring-apeel-green/20 shadow-md transform scale-[1.02]'
+                            : 'border-stone-100 hover:border-apeel-green/50 hover:shadow-md'
+                        }`}
+                >
                     <div className="flex items-center justify-between mb-2">
-                        <History className="w-8 h-8 text-apeel-green" />
+                        <History className={`w-8 h-8 ${filterSeverity === 'all' ? 'text-apeel-green' : 'text-stone-400 group-hover:text-apeel-green transition-colors'}`} />
                         <span className="text-3xl font-bold text-stone-800">{stats.total}</span>
                     </div>
-                    <p className="text-sm text-stone-500 font-medium">Total Scans</p>
-                </div>
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-red-100">
+                    <p className={`text-sm font-medium ${filterSeverity === 'all' ? 'text-apeel-green' : 'text-stone-500'}`}>Total Scans</p>
+                </button>
+
+                {/* High Risk Filter */}
+                <button
+                    onClick={() => setFilterSeverity('high')}
+                    className={`bg-white rounded-2xl p-6 shadow-sm border transition-all text-left group ${filterSeverity === 'high'
+                            ? 'border-red-500 ring-2 ring-red-500/20 shadow-md transform scale-[1.02]'
+                            : 'border-red-100 hover:border-red-300 hover:shadow-md'
+                        }`}
+                >
                     <div className="flex items-center justify-between mb-2">
-                        <AlertTriangle className="w-8 h-8 text-red-500" />
+                        <AlertTriangle className={`w-8 h-8 ${filterSeverity === 'high' ? 'text-red-600' : 'text-red-400 group-hover:text-red-600 transition-colors'}`} />
                         <span className="text-3xl font-bold text-red-600">{stats.high}</span>
                     </div>
-                    <p className="text-sm text-stone-500 font-medium">High Risk</p>
-                </div>
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-amber-100">
+                    <p className={`text-sm font-medium ${filterSeverity === 'high' ? 'text-red-700' : 'text-stone-500'}`}>High Risk</p>
+                </button>
+
+                {/* Medium Risk Filter */}
+                <button
+                    onClick={() => setFilterSeverity('medium')}
+                    className={`bg-white rounded-2xl p-6 shadow-sm border transition-all text-left group ${filterSeverity === 'medium'
+                            ? 'border-amber-500 ring-2 ring-amber-500/20 shadow-md transform scale-[1.02]'
+                            : 'border-amber-100 hover:border-amber-300 hover:shadow-md'
+                        }`}
+                >
                     <div className="flex items-center justify-between mb-2">
-                        <AlertTriangle className="w-8 h-8 text-amber-500" />
+                        <AlertTriangle className={`w-8 h-8 ${filterSeverity === 'medium' ? 'text-amber-600' : 'text-amber-400 group-hover:text-amber-600 transition-colors'}`} />
                         <span className="text-3xl font-bold text-amber-600">{stats.medium}</span>
                     </div>
-                    <p className="text-sm text-stone-500 font-medium">Medium Risk</p>
-                </div>
-                <div className="bg-white rounded-2xl p-6 shadow-sm border border-green-100">
+                    <p className={`text-sm font-medium ${filterSeverity === 'medium' ? 'text-amber-700' : 'text-stone-500'}`}>Medium Risk</p>
+                </button>
+
+                {/* Low Risk Filter */}
+                <button
+                    onClick={() => setFilterSeverity('low')}
+                    className={`bg-white rounded-2xl p-6 shadow-sm border transition-all text-left group ${filterSeverity === 'low'
+                            ? 'border-green-500 ring-2 ring-green-500/20 shadow-md transform scale-[1.02]'
+                            : 'border-green-100 hover:border-green-300 hover:shadow-md'
+                        }`}
+                >
                     <div className="flex items-center justify-between mb-2">
-                        <CheckCircle2 className="w-8 h-8 text-green-500" />
+                        <CheckCircle2 className={`w-8 h-8 ${filterSeverity === 'low' ? 'text-green-600' : 'text-green-400 group-hover:text-green-600 transition-colors'}`} />
                         <span className="text-3xl font-bold text-green-600">{stats.low}</span>
                     </div>
-                    <p className="text-sm text-stone-500 font-medium">Low Risk</p>
-                </div>
+                    <p className={`text-sm font-medium ${filterSeverity === 'low' ? 'text-green-700' : 'text-stone-500'}`}>Low Risk</p>
+                </button>
             </div>
 
             {/* Filters and Sort */}
             {allHistory.length > 0 && (
-                <div className="bg-white rounded-2xl p-4 shadow-sm border border-stone-100 mb-6 flex flex-wrap gap-4 items-center">
-                    <div className="flex items-center gap-2">
-                        <Filter className="w-4 h-4 text-stone-400" />
-                        <span className="text-sm font-medium text-stone-600">Filter:</span>
-                        <select
-                            value={filterSeverity}
-                            onChange={(e) => setFilterSeverity(e.target.value)}
-                            className="px-3 py-1.5 rounded-lg border border-stone-200 text-sm font-medium text-stone-700 focus:outline-none focus:ring-2 focus:ring-apeel-green"
-                        >
-                            <option value="all">All Severity</option>
-                            <option value="high">High Risk</option>
-                            <option value="medium">Medium Risk</option>
-                            <option value="low">Low Risk</option>
-                        </select>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <TrendingUp className="w-4 h-4 text-stone-400" />
-                        <span className="text-sm font-medium text-stone-600">Sort:</span>
+                <div className="flex justify-end mb-6">
+                    <div className="bg-white rounded-xl p-2 shadow-sm border border-stone-100 flex items-center gap-3">
+                        <div className="flex items-center gap-2 px-2">
+                            <TrendingUp className="w-4 h-4 text-stone-400" />
+                            <span className="text-sm font-medium text-stone-600">Sort by:</span>
+                        </div>
                         <select
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value as any)}
-                            className="px-3 py-1.5 rounded-lg border border-stone-200 text-sm font-medium text-stone-700 focus:outline-none focus:ring-2 focus:ring-apeel-green"
+                            className="bg-transparent text-sm font-bold text-stone-800 focus:outline-none cursor-pointer pr-2"
                         >
                             <option value="newest">Newest First</option>
                             <option value="oldest">Oldest First</option>
-                            <option value="severity">By Severity</option>
+                            <option value="severity">Highest Severity</option>
                         </select>
-                    </div>
-                    <div className="ml-auto text-sm text-stone-500">
-                        Showing {history.length} of {allHistory.length} scans
+                        <div className="w-px h-6 bg-stone-100 mx-1"></div>
+                        <div className="text-xs font-medium text-stone-400 px-2">
+                            Showing {history.length} results
+                        </div>
                     </div>
                 </div>
             )}
@@ -240,9 +266,77 @@ export default function HistoryPage() {
                                         </div>
                                     </div>
 
-                                    <p className="text-stone-600 leading-relaxed line-clamp-2 mb-6 font-serif text-lg">
+                                    <p className="text-stone-600 leading-relaxed line-clamp-2 mb-4 font-serif text-lg">
                                         {record.diagnosis?.diseases?.[0]?.description || 'No description available for this record.'}
                                     </p>
+
+                                    {/* Scan Type Badge */}
+                                    <div className="flex items-center gap-2 mb-4">
+                                        {record.scanType === 'crop' ? (
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-purple-100 bg-purple-50 text-purple-700 text-xs font-bold shadow-sm">
+                                                <Apple className="w-3 h-3" />
+                                                Crop Scan
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-green-100 bg-green-50 text-green-700 text-xs font-bold shadow-sm">
+                                                <Leaf className="w-3 h-3" />
+                                                Leaf Scan
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Notes Section */}
+                                    <div className="mb-4 bg-amber-50/50 border border-amber-100 rounded-xl p-4">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2 text-amber-900">
+                                                <FileText className="w-4 h-4" />
+                                                <span className="text-sm font-bold">Notes</span>
+                                            </div>
+                                            {editingNotes === record.id ? (
+                                                <button
+                                                    onClick={async () => {
+                                                        const notes = notesText[record.id] || record.notes || ''
+                                                        await updateAnalysisNotes(user?.id || '', record.id, notes)
+                                                        setEditingNotes(null)
+                                                        refresh()
+                                                    }}
+                                                    className="flex items-center gap-1 px-3 py-1 bg-apeel-green text-white rounded-lg text-xs font-bold hover:bg-apeel-dark transition-colors"
+                                                >
+                                                    <Save className="w-3 h-3" />
+                                                    Save
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => {
+                                                        setEditingNotes(record.id)
+                                                        setNotesText(prev => ({
+                                                            ...prev,
+                                                            [record.id]: record.notes || ''
+                                                        }))
+                                                    }}
+                                                    className="text-xs font-medium text-amber-700 hover:text-amber-900 transition-colors"
+                                                >
+                                                    {record.notes ? 'Edit' : 'Add Note'}
+                                                </button>
+                                            )}
+                                        </div>
+                                        {editingNotes === record.id ? (
+                                            <textarea
+                                                value={notesText[record.id] || ''}
+                                                onChange={(e) => setNotesText(prev => ({
+                                                    ...prev,
+                                                    [record.id]: e.target.value
+                                                }))}
+                                                placeholder="Add your observations, treatment notes, or any relevant information..."
+                                                className="w-full px-3 py-2 border border-amber-200 rounded-lg text-sm text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none"
+                                                rows={3}
+                                            />
+                                        ) : (
+                                            <p className="text-sm text-stone-600 italic">
+                                                {record.notes || 'No notes yet. Click "Add Note" to document your observations.'}
+                                            </p>
+                                        )}
+                                    </div>
 
                                     {/* Action Results Summary */}
                                     {record.actionResult && (

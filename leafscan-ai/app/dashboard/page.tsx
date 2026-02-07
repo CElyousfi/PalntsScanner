@@ -1,7 +1,7 @@
 'use client'
 
 import { useAuth } from '@/context/AuthContext'
-import { Sprout, History, Activity, Map, Brain, BookOpen, MessageSquare, Beaker } from 'lucide-react'
+import { Sprout, History, Map, BookOpen, Compass } from 'lucide-react'
 import Link from 'next/link'
 
 export default function DashboardHome() {
@@ -12,7 +12,7 @@ export default function DashboardHome() {
       href: '/dashboard/scan',
       icon: Sprout,
       title: 'New Scan',
-      description: 'Upload and analyze plant images',
+      description: 'Analyze leaves and produce quality',
       color: 'bg-green-500'
     },
     {
@@ -23,11 +23,11 @@ export default function DashboardHome() {
       color: 'bg-blue-500'
     },
     {
-      href: '/dashboard/vitals',
-      icon: Activity,
-      title: 'Vitals',
-      description: 'Monitor crop health metrics',
-      color: 'bg-purple-500'
+      href: '/dashboard/notes',
+      icon: BookOpen,
+      title: 'Notes',
+      description: 'Farm management notes & knowledge',
+      color: 'bg-amber-500'
     },
     {
       href: '/dashboard/threat-map',
@@ -37,32 +37,11 @@ export default function DashboardHome() {
       color: 'bg-red-500'
     },
     {
-      href: '/dashboard/autonomy',
-      icon: Brain,
-      title: 'Autonomy',
-      description: 'Autonomous farm management',
-      color: 'bg-indigo-500'
-    },
-    {
-      href: '/dashboard/notes',
-      icon: BookOpen,
-      title: 'Notes',
-      description: 'Farm management notes',
-      color: 'bg-amber-500'
-    },
-    {
-      href: '/dashboard/notes-notebook',
-      icon: MessageSquare,
-      title: 'Notebook',
-      description: 'Advanced note-taking',
-      color: 'bg-teal-500'
-    },
-    {
-      href: '/dashboard/lab',
-      icon: Beaker,
-      title: 'Lab',
-      description: 'Experimental features',
-      color: 'bg-pink-500'
+      href: '/dashboard/explore',
+      icon: Compass,
+      title: 'Explore',
+      description: 'Discover insights and resources',
+      color: 'bg-purple-500'
     }
   ]
 

@@ -12,6 +12,9 @@ export interface HistoricalAnalysis {
     image: string // base64
     diagnosis: DiagnosisResult
     actionResult?: ActionRescueResult | null
+    scanType: 'leaf' | 'crop' // Type of scan performed
+    notes?: string // User notes for this specific analysis
+    produceResults?: any // For crop scan results
 }
 
 export interface Action {
@@ -399,6 +402,42 @@ export function updateHistoryEntry(id: string, updater: (entry: HistoricalAnalys
         ...state,
         history: newHistory
     })
+}
+
+// NEW: Update notes for a specific analysis
+export async function updateAnalysisNotes(userId: string, analysisId: string, notes: string): Promise<void> {
+    const state = getSystemState()
+    if (!state || !state.history) return
+
+    const index = state.history.findIndex(h => h.id === analysisId)
+    if (index === -1) {
+        console.error('[Store] Analysis not found:', analysisId)
+        return
+    }
+
+    // Update the notes
+    const newHistory = [...state.history]
+    newHistory[index] = {
+        ...newHistory[index],
+        notes
+    }
+
+    const updatedState = {
+        ...state,
+        history: newHistory
+    }
+
+    try {
+        // Save to localStorage
+        saveSystemState(updatedState)
+        console.log('[Store] ✅ Notes saved to localStorage')
+
+        // Save to Supabase
+        await saveSystemStateToDatabase(userId, updatedState)
+        console.log('[Store] ✅ Notes saved to Supabase')
+    } catch (error) {
+        console.error('[Store] ❌ Error saving notes:', error)
+    }
 }
 
 export function saveVisualToCache(prompt: string, image: string) {

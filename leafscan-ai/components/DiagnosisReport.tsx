@@ -43,8 +43,10 @@ import {
   ChevronUp,
   ExternalLink,
   LeafyGreen,
-  MapPin
+  MapPin,
+  Maximize2
 } from 'lucide-react'
+import ImageLightbox from '@/components/ui/ImageLightbox'
 import dynamic from 'next/dynamic'
 
 // Dynamically import map to avoid SSR issues with Leaflet
@@ -104,6 +106,7 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
   const { system } = useAutonomy()
   const [visualizing, setVisualizing] = useState<boolean>(false)
   const [visualData, setVisualData] = useState<{ image: string, prompt: string, error?: string } | null>(null)
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false)
 
   const handleGenerateVisual = async (prompt: string, type: 'guide' | 'simulation') => {
     setVisualizing(true)
@@ -207,21 +210,16 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
         <div className="lg:col-span-5 space-y-6">
           {/* Image Analysis Card */}
           <div className="bg-white rounded-[2rem] p-2 shadow-xl shadow-apeel-green/5 border border-apeel-green/10 relative overflow-hidden group">
-            <div className="relative rounded-[1.5rem] overflow-hidden bg-apeel-light aspect-[4/3]">
-              <img
-                src={image}
-                alt="Analyzed specimen"
-                className="w-full h-full object-contain mix-blend-multiply"
-              />
 
-              {/* Highlighted Areas Overlay (SVG Precision) */}
+            <ImageLightbox
+              isOpen={isLightboxOpen}
+              onClose={() => setIsLightboxOpen(false)}
+              imageSrc={image}
+              altText="Analysis Overlay"
+            >
               <svg className="absolute inset-0 w-full h-full z-10" style={{ pointerEvents: 'none' }}>
-                {(() => {
-                  console.log('[DiagnosisReport] highlightedAreas:', result.highlightedAreas)
-                  return null
-                })()}
                 {result.highlightedAreas?.map((area, i) => {
-                  // Calculate bbox dimensions first if it exists
+                  // Logic duplication for Lightbox - Ensures perfect match
                   let left = 0, top = 0, width = 0, height = 0;
                   if (area.bbox) {
                     if (Array.isArray(area.bbox)) {
@@ -231,7 +229,72 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
                       width = ((xmax - xmin) / 1000) * 100;
                       height = ((ymax - ymin) / 1000) * 100;
                     } else {
-                      // Cast to object type for TS safety
+                      const b = area.bbox as { x: number, y: number, width: number, height: number };
+                      left = b.x * 100;
+                      top = b.y * 100;
+                      width = b.width * 100;
+                      height = b.height * 100;
+                    }
+                  }
+                  const severityStyles = {
+                    'mild': { stroke: '#facc15', fill: '#facc15' },
+                    'moderate': { stroke: '#f97316', fill: '#f97316' },
+                    'severe': { stroke: '#dc2626', fill: '#dc2626' }
+                  };
+                  const style = severityStyles[area.severity as keyof typeof severityStyles] || severityStyles.moderate;
+
+                  return (
+                    <g key={i}>
+                      {area.center ? (
+                        <>
+                          <circle cx={`${area.center.x * 100}%`} cy={`${area.center.y * 100}%`} r={`${Math.max((area.radius || 0.03) * 100, 3)}%`} fill={style.fill} fillOpacity="0.35" />
+                          <circle cx={`${area.center.x * 100}%`} cy={`${area.center.y * 100}%`} r={`${Math.max((area.radius || 0.03) * 100 * 1.2, 4)}%`} fill="none" stroke={style.stroke} strokeWidth="2" strokeOpacity="0.6" className="animate-pulse" />
+                          <text x={`${(area.center.x * 100) + 2}%`} y={`${(area.center.y * 100) - 2}%`} className="text-[11px] font-bold fill-white stroke-black stroke-[0.5] drop-shadow-md">#{i + 1}</text>
+                        </>
+                      ) : area.bbox ? (
+                        <>
+                          <rect x={`${left}%`} y={`${top}%`} width={`${width}%`} height={`${height}%`} fill={style.fill} fillOpacity="0.25" stroke={style.stroke} strokeWidth="3" rx="4" vectorEffect="non-scaling-stroke" />
+                        </>
+                      ) : null}
+                    </g>
+                  )
+                })}
+              </svg>
+            </ImageLightbox>
+
+            {/* Zoom Button */}
+            <div className="absolute top-6 right-6 z-30 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={() => setIsLightboxOpen(true)}
+                className="bg-black/50 hover:bg-black/70 text-white p-2 rounded-full backdrop-blur-sm transition-all shadow-lg"
+                title="Zoom Image"
+              >
+                <Maximize2 className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div
+              className="relative rounded-[1.5rem] overflow-hidden bg-apeel-light aspect-[4/3] cursor-pointer"
+              onClick={() => setIsLightboxOpen(true)}
+            >
+              <img
+                src={image}
+                alt="Analyzed specimen"
+                className="w-full h-full object-contain mix-blend-multiply"
+              />
+
+              {/* Highlighted Areas Overlay (Main View - Interactive) */}
+              <svg className="absolute inset-0 w-full h-full z-10" style={{ pointerEvents: 'none' }}>
+                {result.highlightedAreas?.map((area, i) => {
+                  let left = 0, top = 0, width = 0, height = 0;
+                  if (area.bbox) {
+                    if (Array.isArray(area.bbox)) {
+                      const [ymin, xmin, ymax, xmax] = area.bbox as unknown as [number, number, number, number];
+                      left = (xmin / 1000) * 100;
+                      top = (ymin / 1000) * 100;
+                      width = ((xmax - xmin) / 1000) * 100;
+                      height = ((ymax - ymin) / 1000) * 100;
+                    } else {
                       const b = area.bbox as { x: number, y: number, width: number, height: number };
                       left = b.x * 100;
                       top = b.y * 100;
@@ -240,42 +303,21 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
                     }
                   }
 
-                  // Severity styling
                   const severityStyles = {
-                    'mild': { stroke: '#facc15', fill: '#facc15' }, // Yellow-400
-                    'moderate': { stroke: '#f97316', fill: '#f97316' }, // Orange-500
-                    'severe': { stroke: '#dc2626', fill: '#dc2626' } // Red-600
+                    'mild': { stroke: '#facc15', fill: '#facc15' },
+                    'moderate': { stroke: '#f97316', fill: '#f97316' },
+                    'severe': { stroke: '#dc2626', fill: '#dc2626' }
                   };
                   const style = severityStyles[area.severity as keyof typeof severityStyles] || severityStyles.moderate;
 
                   return (
                     <g key={i}>
                       {area.center ? (
-                        // --- SURGICAL PRECISION DOT MODE ---
                         <>
-                          {/* Filled Affected Area - AI Pleasing Highlight */}
-                          <circle
-                            cx={`${area.center.x * 100}%`}
-                            cy={`${area.center.y * 100}%`}
-                            r={`${Math.max((area.radius || 0.03) * 100, 3)}%`}
-                            fill={style.fill}
-                            fillOpacity="0.35"
-                            className="transition-opacity duration-300"
-                          />
+                          <circle cx={`${area.center.x * 100}%`} cy={`${area.center.y * 100}%`} r={`${Math.max((area.radius || 0.03) * 100, 3)}%`} fill={style.fill} fillOpacity="0.35" className="transition-opacity duration-300" />
+                          <circle cx={`${area.center.x * 100}%`} cy={`${area.center.y * 100}%`} r={`${Math.max((area.radius || 0.03) * 100 * 1.2, 4)}%`} fill="none" stroke={style.stroke} strokeWidth="2" strokeOpacity="0.6" className="animate-pulse" />
 
-                          {/* Outer Glow Ring */}
-                          <circle
-                            cx={`${area.center.x * 100}%`}
-                            cy={`${area.center.y * 100}%`}
-                            r={`${Math.max((area.radius || 0.03) * 100 * 1.2, 4)}%`}
-                            fill="none"
-                            stroke={style.stroke}
-                            strokeWidth="2"
-                            strokeOpacity="0.6"
-                            className="animate-pulse"
-                          />
-
-                          {/* Precise Center Dot - Interactive (FIXED - No Movement) */}
+                          {/* Interactive Dot */}
                           <circle
                             cx={`${area.center.x * 100}%`}
                             cy={`${area.center.y * 100}%`}
@@ -284,60 +326,23 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
                             stroke="white"
                             strokeWidth="2"
                             className="cursor-pointer drop-shadow-lg"
-                            style={{
-                              pointerEvents: 'auto'
-                            }}
+                            style={{ pointerEvents: 'auto' }}
                             onClick={(e) => {
                               e.stopPropagation();
-                              console.log('[Surgical Dot] Clicked:', area.label);
-                              if (onSymptomClick && area.center) {
-                                onSymptomClick(
-                                  `${area.label} (${area.severity})`,
-                                  `${(area.center.x * 100).toFixed(1)},${(area.center.y * 100).toFixed(1)}`
-                                );
-                              }
+                              if (onSymptomClick && area.center) onSymptomClick(`${area.label} (${area.severity})`, `${(area.center.x * 100).toFixed(1)},${(area.center.y * 100).toFixed(1)}`);
                             }}
                             onMouseEnter={(e) => {
                               const rect = e.currentTarget.getBoundingClientRect();
                               setHoveredDot(i);
                               setTooltipPos({ x: rect.left + rect.width / 2, y: rect.top });
                             }}
-                            onMouseLeave={() => {
-                              setHoveredDot(null);
-                              setTooltipPos(null);
-                            }}
+                            onMouseLeave={() => { setHoveredDot(null); setTooltipPos(null); }}
                           />
-
-                          {/* Label Badge */}
-                          <text
-                            x={`${(area.center.x * 100) + 2}%`}
-                            y={`${(area.center.y * 100) - 2}%`}
-                            className="text-[11px] font-bold pointer-events-none drop-shadow-lg"
-                            fill="white"
-                            stroke="black"
-                            strokeWidth="0.5"
-                          >
-                            #{i + 1}
-                          </text>
+                          <text x={`${(area.center.x * 100) + 2}%`} y={`${(area.center.y * 100) - 2}%`} className="text-[11px] font-bold pointer-events-none drop-shadow-lg" fill="white" stroke="black" strokeWidth="0.5">#{i + 1}</text>
                         </>
                       ) : area.bbox ? (
-                        // --- LEGACY BOUNDING BOX MODE ---
                         <>
-                          <rect
-                            x={`${left}%`}
-                            y={`${top}%`}
-                            width={`${width}%`}
-                            height={`${height}%`}
-                            fill={style.fill}
-                            fillOpacity="0.25"
-                            stroke={style.stroke}
-                            strokeWidth="3"
-                            rx="4"
-                            className="pointer-events-none transition-opacity duration-200"
-                            vectorEffect="non-scaling-stroke"
-                          />
-
-                          {/* Interactive Central Focus Point */}
+                          <rect x={`${left}%`} y={`${top}%`} width={`${width}%`} height={`${height}%`} fill={style.fill} fillOpacity="0.25" stroke={style.stroke} strokeWidth="3" rx="4" className="pointer-events-none transition-opacity duration-200" vectorEffect="non-scaling-stroke" />
                           <circle
                             cx={`${left + width / 2}%`}
                             cy={`${top + height / 2}%`}
@@ -350,52 +355,19 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
                               if (onSymptomClick) onSymptomClick(area.label, `${(left + width / 2).toFixed(1)},${(top + height / 2).toFixed(1)}`);
                             }}
                           />
-
-                          {/* Box Label */}
-                          <text
-                            x={`${left + 1}%`}
-                            y={`${top - 0.5}%`}
-                            className="text-[10px] font-bold pointer-events-none"
-                            fill={style.stroke}
-                            stroke="white"
-                            strokeWidth="3"
-                            paintOrder="stroke"
-                          >
-                            #{i + 1}
-                          </text>
+                          <text x={`${left + 1}%`} y={`${top - 0.5}%`} className="text-[10px] font-bold pointer-events-none" fill={style.stroke} stroke="white" strokeWidth="3" paintOrder="stroke">#{i + 1}</text>
                         </>
                       ) : null}
-
                     </g>
                   )
                 })}
               </svg>
 
-              {/* Floating Tooltip - Outside SVG */}
+              {/* Tooltip */}
               {hoveredDot !== null && tooltipPos && result.highlightedAreas && result.highlightedAreas[hoveredDot] && (
-                <div
-                  style={{
-                    position: 'fixed',
-                    left: `${tooltipPos.x}px`,
-                    top: `${tooltipPos.y - 10}px`,
-                    transform: 'translate(-50%, -100%)',
-                    zIndex: 10000,
-                    pointerEvents: 'none'
-                  }}
-                  className="bg-white/98 backdrop-blur-md rounded-lg shadow-2xl border-2 p-2.5 text-xs min-w-[140px]"
-                >
-                  <div className="font-bold text-gray-900 mb-1 leading-tight">
-                    {result.highlightedAreas[hoveredDot].label}
-                  </div>
-                  <div
-                    className="text-[10px] font-semibold capitalize"
-                    style={{
-                      color: result.highlightedAreas[hoveredDot].severity === 'mild' ? '#facc15' :
-                        result.highlightedAreas[hoveredDot].severity === 'moderate' ? '#f97316' : '#dc2626'
-                    }}
-                  >
-                    {result.highlightedAreas[hoveredDot].severity} Severity
-                  </div>
+                <div style={{ position: 'fixed', left: `${tooltipPos.x}px`, top: `${tooltipPos.y - 10}px`, transform: 'translate(-50%, -100%)', zIndex: 10000, pointerEvents: 'none' }} className="bg-white/98 backdrop-blur-md rounded-lg shadow-2xl border-2 p-2.5 text-xs min-w-[140px]">
+                  <div className="font-bold text-gray-900 mb-1 leading-tight">{result.highlightedAreas[hoveredDot].label}</div>
+                  <div className="text-[10px] font-semibold capitalize" style={{ color: result.highlightedAreas[hoveredDot].severity === 'mild' ? '#facc15' : result.highlightedAreas[hoveredDot].severity === 'moderate' ? '#f97316' : '#dc2626' }}>{result.highlightedAreas[hoveredDot].severity} Severity</div>
                 </div>
               )}
             </div>
@@ -577,7 +549,7 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-sm">
           {/* Step 1 */}
           <div className="space-y-4">
             <span className="text-rose-300 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
@@ -613,7 +585,7 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
           </div>
 
           {/* Step 2 */}
-          <div className="space-y-4 md:border-l md:border-white/10 md:pl-8">
+          <div className="space-y-4 lg:border-l lg:border-white/10 lg:pl-8">
             <span className="text-amber-300 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
               <Clock className="w-3 h-3" /> Short Term
             </span>
@@ -647,7 +619,7 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
           </div>
 
           {/* Step 3 */}
-          <div className="space-y-4 md:border-l md:border-white/10 md:pl-8">
+          <div className="space-y-4 lg:border-l lg:border-white/10 lg:pl-8">
             <span className="text-emerald-300 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
               <Shield className="w-3 h-3" /> Long Term
             </span>
@@ -786,43 +758,7 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
         </div>
       )}
 
-      {/* MARATHON MODE COMPACT CTA */}
-      {
-        onStartMonitoring && (
-          <>
-            <div className="mt-8 flex flex-col md:flex-row items-center justify-between bg-white border border-apeel-green/10 rounded-[2rem] p-6 shadow-xl shadow-apeel-green/5 gap-6 group hover:border-apeel-green/30 transition-all">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-apeel-green/10 text-apeel-green rounded-full group-hover:bg-apeel-green group-hover:text-white transition-colors">
-                  <Activity className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="font-serif font-bold text-xl text-apeel-black">Activate Marathon Mode</h3>
-                  <p className="text-sm text-gray-500">Autonomous 14-day AI monitoring & recovery tracking.</p>
-                </div>
-              </div>
-              <button onClick={onStartMonitoring} className="px-8 py-3 bg-apeel-green text-white rounded-full font-bold text-sm hover:scale-105 transition-transform flex items-center gap-2 shadow-xl shadow-apeel-green/20">
-                Start Monitoring <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Growth Timeline CTA */}
-            <div className="mt-4 flex flex-col md:flex-row items-center justify-between bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-[2rem] p-6 shadow-sm gap-6">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-white text-emerald-600 rounded-full shadow-sm">
-                  <Sprout className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="font-serif font-bold text-xl text-emerald-900">Growth Timeline Updated</h3>
-                  <p className="text-sm text-emerald-700/80">Photo added to your lifecycle timeline.</p>
-                </div>
-              </div>
-              <a href="/tracker" className="px-8 py-3 bg-white text-emerald-700 rounded-full font-bold text-sm hover:bg-emerald-50 transition-colors flex items-center gap-2 shadow-sm border border-emerald-200">
-                View Timeline <ArrowRight className="w-4 h-4" />
-              </a>
-            </div>
-          </>
-        )
-      }
+      {/* MARATHON MODE COMPACT CTA and Growth Timeline sections have been removed as requested. */}
 
       {/* Visual Guide Modal */}
       {(visualizing || visualData) && (

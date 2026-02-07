@@ -1,12 +1,17 @@
 'use client'
 
 import { useAuth } from '@/context/AuthContext'
-import { LayoutDashboard, Compass, Sprout, History, Globe, LogOut, Search, Eye, EyeOff, Menu, X, Leaf, FileText, Apple } from 'lucide-react'
+import { LayoutDashboard, Compass, Sprout, History, Globe, LogOut, Search, Eye, EyeOff, Menu, X, Leaf, FileText } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import React, { useState, useMemo, memo, useEffect } from 'react'
 import Link from 'next/link'
 import { usePublicAccess } from '@/context/PublicAccessContext'
-import AIChat from '../AIChat'
+import dynamic from 'next/dynamic'
+
+// Lazy load AIChat for better performance
+const AIChat = dynamic(() => import('../AIChat'), {
+    ssr: false
+})
 
 const AppShell = memo(function AppShell({ children }: { children: React.ReactNode }) {
     const { logout } = useAuth()
@@ -36,7 +41,6 @@ const AppShell = memo(function AppShell({ children }: { children: React.ReactNod
         { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
         { icon: Search, label: 'Scan', href: '/dashboard/scan' },
         { icon: FileText, label: 'Notes', href: '/dashboard/notes' },
-        { icon: Apple, label: 'Vitals', href: '/dashboard/vitals' },
         { icon: Globe, label: 'Map', href: '/dashboard/threat-map' },
         { icon: Compass, label: 'Explore', href: '/dashboard/explore' },
         { icon: History, label: 'History', href: '/dashboard/history' },

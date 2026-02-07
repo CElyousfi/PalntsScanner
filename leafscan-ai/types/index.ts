@@ -261,6 +261,20 @@ export interface WaterMetrics {
   advice: string
 }
 
+export interface ProductRecommendation {
+  name: string
+  category: 'fungicide' | 'pesticide' | 'fertilizer' | 'soil_amendment' | 'organic_treatment' | 'equipment' | 'other'
+  type: 'organic' | 'chemical' | 'biological'
+  purpose: string
+  dosage?: string
+  applicationMethod?: string
+  estimatedCost?: string
+  priority: 'critical' | 'high' | 'medium' | 'low'
+  alternatives?: string[]
+  safetyNotes?: string
+  whereToFind?: string
+}
+
 export type GrowthStage = 'Seeding' | 'Early Vigor' | 'Vegetative' | 'Flowering' | 'Fruiting' | 'Pre-Winter' | 'Post-Winter' | 'Harvest'
 
 export interface GrowthEntry {
@@ -347,6 +361,7 @@ export interface DiagnosisResult {
     name: string
     confidence: number
   }
+  productRecommendations?: ProductRecommendation[] // NEW: Product recommendations for treatment
 }
 
 // End of types definitions

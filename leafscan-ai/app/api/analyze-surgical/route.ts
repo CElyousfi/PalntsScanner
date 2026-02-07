@@ -19,8 +19,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No image provided' }, { status: 400 })
     }
 
+    // Check API key
+    const apiKey = process.env.GEMINI_API_KEY
+    console.log('🔑 API Key status:', apiKey ? `Present (${apiKey.substring(0, 10)}...)` : '❌ MISSING')
+    
+    if (!apiKey) {
+      console.error('❌ GEMINI_API_KEY not found in environment variables')
+      throw new Error('API key not configured')
+    }
+
     console.log('🔬 SURGICAL PRECISION ANALYSIS STARTED')
     console.log('📍 Location:', location || 'Unknown')
+    console.log('🤖 Model: gemini-3-pro-preview')
     
     const startTime = Date.now()
 
@@ -244,8 +254,54 @@ Based on identified plant, match appropriate diseases:
   "preventionTips": ["string array"],
   "severity": "low" | "medium" | "high",
   "sustainabilityScore": number (0-100),
-  "agenticReasoning": "string (brief explanation of identification and diagnosis process)"
+  "agenticReasoning": "string (brief explanation of identification and diagnosis process)",
+  "productRecommendations": [
+    {
+      "name": "string (specific product name, e.g., 'Copper Fungicide', 'Neem Oil', 'Potassium Bicarbonate')",
+      "category": "fungicide" | "pesticide" | "fertilizer" | "soil_amendment" | "organic_treatment" | "equipment" | "other",
+      "type": "organic" | "chemical" | "biological",
+      "purpose": "string (what this product treats/prevents)",
+      "dosage": "string (recommended application rate, e.g., '2-3 tablespoons per gallon')",
+      "applicationMethod": "string (how to apply, e.g., 'Foliar spray every 7-10 days')",
+      "estimatedCost": "string (approximate price range, e.g., '$15-25 per liter')",
+      "priority": "critical" | "high" | "medium" | "low",
+      "alternatives": ["string array of alternative products"],
+      "safetyNotes": "string (important safety information)",
+      "whereToFind": "string (where to purchase, e.g., 'Agricultural supply stores, garden centers')"
+    }
+  ]
 }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 **STAGE 3: PRODUCT RECOMMENDATIONS**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**CRITICAL**: Provide 3-6 specific product recommendations to treat the diagnosed condition.
+
+**For each product, specify:**
+1. **Exact product name** (e.g., "Copper Fungicide", "Neem Oil 70%", "Bacillus subtilis")
+2. **Category**: fungicide, pesticide, fertilizer, soil_amendment, organic_treatment, equipment, other
+3. **Type**: organic, chemical, or biological
+4. **Purpose**: What it treats/prevents specifically
+5. **Dosage**: Exact application rate (e.g., "2 tablespoons per gallon of water")
+6. **Application method**: How and when to apply (e.g., "Foliar spray every 7 days at dawn")
+7. **Estimated cost**: Realistic price range (e.g., "$15-25 per liter")
+8. **Priority**: critical (must-have), high (strongly recommended), medium (helpful), low (optional)
+9. **Alternatives**: 1-2 alternative products with similar effects
+10. **Safety notes**: Important warnings (e.g., "Wear gloves", "Avoid during flowering")
+11. **Where to find**: Where farmers can buy it (e.g., "Agricultural supply stores, online retailers")
+
+**Priority Guidelines:**
+- **Critical**: Essential for immediate treatment (e.g., fungicide for severe infection)
+- **High**: Strongly recommended for effective treatment
+- **Medium**: Supportive products that enhance recovery
+- **Low**: Optional preventive measures
+
+**Example for Citrus Canker:**
+- Critical: Copper-based bactericide
+- High: Pruning shears (sterilized) to remove infected tissue
+- Medium: Zinc sulfate foliar spray for plant immunity
+- Low: Organic compost for soil health
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ **CRITICAL RULES**
@@ -258,6 +314,7 @@ Based on identified plant, match appropriate diseases:
 5. **Small precise dots** - radius 0.01-0.08, not large boxes
 6. **Quality over quantity** - Better 2-3 precise lesions than 10 uncertain ones
 7. **Maximum 6 lesions** - Focus on most significant
+8. **Provide 3-6 product recommendations** - Specific, actionable, with all details
 
 Analyze now with SURGICAL PRECISION! 🔬`
 
@@ -345,7 +402,13 @@ Analyze now with SURGICAL PRECISION! 🔬`
     })
 
   } catch (error: any) {
-    console.error('Surgical analysis error:', error)
+    console.error('❌ Surgical analysis error:', error)
+    console.error('Error details:', {
+      message: error.message,
+      status: error.status,
+      statusText: error.statusText,
+      errorDetails: error.errorDetails
+    })
     
     // Return demo mode if API fails
     return NextResponse.json({

@@ -35,7 +35,15 @@ import {
   X,
   Map,
   ShoppingBag,
-  Navigation
+  Navigation,
+  Package,
+  DollarSign,
+  AlertCircleIcon,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  LeafyGreen,
+  MapPin
 } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
@@ -276,7 +284,7 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
                             stroke="white"
                             strokeWidth="2"
                             className="cursor-pointer drop-shadow-lg"
-                            style={{ 
+                            style={{
                               pointerEvents: 'auto'
                             }}
                             onClick={(e) => {
@@ -379,11 +387,11 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
                   <div className="font-bold text-gray-900 mb-1 leading-tight">
                     {result.highlightedAreas[hoveredDot].label}
                   </div>
-                  <div 
+                  <div
                     className="text-[10px] font-semibold capitalize"
                     style={{
                       color: result.highlightedAreas[hoveredDot].severity === 'mild' ? '#facc15' :
-                             result.highlightedAreas[hoveredDot].severity === 'moderate' ? '#f97316' : '#dc2626'
+                        result.highlightedAreas[hoveredDot].severity === 'moderate' ? '#f97316' : '#dc2626'
                     }}
                   >
                     {result.highlightedAreas[hoveredDot].severity} Severity
@@ -674,11 +682,115 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
         </div>
       </div>
 
+      {/* PRODUCT RECOMMENDATIONS SECTION - MINIMALIST */}
+      {result.productRecommendations && result.productRecommendations.length > 0 && (
+        <div className="mt-10 bg-white rounded-[2rem] p-8 border border-apeel-green/10 shadow-xl shadow-apeel-green/5 overflow-hidden">
+
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-apeel-green text-white rounded-xl shadow-sm">
+              <ShoppingBag className="w-5 h-5" />
+            </div>
+            <h2 className="text-2xl font-serif font-bold text-apeel-black">Recommended Treatments</h2>
+          </div>
+
+          <div className="space-y-3">
+            {result.productRecommendations
+              .sort((a, b) => {
+                const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 }
+                return priorityOrder[a.priority as keyof typeof priorityOrder] - priorityOrder[b.priority as keyof typeof priorityOrder]
+              })
+              .map((product, idx) => {
+                const priorityColors = {
+                  critical: 'bg-rose-100 text-rose-700 border-rose-200',
+                  high: 'bg-orange-100 text-orange-700 border-orange-200',
+                  medium: 'bg-amber-100 text-amber-700 border-amber-200',
+                  low: 'bg-blue-100 text-blue-700 border-blue-200'
+                }
+
+                return (
+                  <div key={idx} className="group flex flex-col md:flex-row md:items-center gap-4 p-4 rounded-xl border border-gray-100 hover:border-apeel-green/30 hover:bg-apeel-green/5 transition-all">
+                    {/* Icon & Priority */}
+                    <div className="flex items-center gap-3 min-w-[140px]">
+                      <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${priorityColors[product.priority as keyof typeof priorityColors]}`}>
+                        {product.priority}
+                      </span>
+                      <span className="text-xl" title={product.type}>{product.type === 'organic' ? '🌿' : product.type === 'chemical' ? '⚗️' : '🦠'}</span>
+                    </div>
+
+                    {/* Main Info */}
+                    <div className="flex-grow">
+                      <h3 className="text-base font-bold text-gray-900 leading-tight mb-1">{product.name}</h3>
+                      <p className="text-xs text-gray-500 font-medium leading-relaxed">{product.purpose}</p>
+                    </div>
+
+                    {/* Key Stats (Dosage/Directions) */}
+                    <div className="flex flex-col gap-1 md:items-end min-w-[150px]">
+                      {product.dosage && (
+                        <div className="text-xs font-semibold text-gray-700 flex items-center gap-1.5 bg-white px-2 py-1 rounded border border-gray-100">
+                          <span className="w-1.5 h-1.5 rounded-full bg-apeel-green"></span>
+                          {product.dosage}
+                        </div>
+                      )}
+                      {product.applicationMethod && (
+                        <div className="text-[10px] text-gray-400 font-medium truncate max-w-[150px]">
+                          Via {product.applicationMethod}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action */}
+                    <div className="flex items-center gap-1">
+                      <a
+                        href={`/dashboard/threat-map?search=${encodeURIComponent(product.name)}&mode=supplier`}
+                        className="p-2 text-gray-300 hover:text-apeel-green hover:bg-white rounded-lg transition-colors group/map"
+                        title="Find Supplier on Map"
+                      >
+                        <MapPin className="w-4 h-4 group-hover/map:scale-110 transition-transform" />
+                      </a>
+                      <button className="p-2 text-gray-300 hover:text-apeel-green hover:bg-white rounded-lg transition-colors">
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+          </div>
+
+          {/* Shopping List Summary - Simplified Ticket (No Prices) */}
+          <div className="mt-8 bg-gray-50/50 border border-dashed border-gray-200 rounded-xl p-6">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Package className="w-4 h-4 text-apeel-green" />
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest">Recovery Shopping List</h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-3">
+                {result.productRecommendations.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm py-1.5 border-b border-gray-100 last:border-0 hover:bg-white rounded px-2 -mx-2 transition-all">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-2 h-2 rounded-full shadow-sm ${p.priority === 'critical' ? 'bg-rose-500' : 'bg-apeel-green'}`} />
+                      <span className={`font-medium ${p.priority === 'critical' ? 'text-gray-900' : 'text-gray-600'}`}>{p.name}</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{p.type}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-gray-200 flex justify-end">
+                <button className="px-5 py-2 bg-apeel-black text-white text-xs font-bold rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-2">
+                  <Download className="w-3 h-3" /> Save Checklist
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MARATHON MODE COMPACT CTA */}
       {
         onStartMonitoring && (
           <>
-            <div className="mt-6 flex flex-col md:flex-row items-center justify-between bg-white border border-apeel-green/10 rounded-[2rem] p-6 shadow-lg shadow-apeel-green/5 gap-6 group hover:border-apeel-green/30 transition-all">
+            <div className="mt-8 flex flex-col md:flex-row items-center justify-between bg-white border border-apeel-green/10 rounded-[2rem] p-6 shadow-xl shadow-apeel-green/5 gap-6 group hover:border-apeel-green/30 transition-all">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-apeel-green/10 text-apeel-green rounded-full group-hover:bg-apeel-green group-hover:text-white transition-colors">
                   <Activity className="w-6 h-6" />

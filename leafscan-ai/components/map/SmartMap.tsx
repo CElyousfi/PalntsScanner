@@ -1,24 +1,27 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
-import Map, { Source, Layer, NavigationControl, ScaleControl, MapRef, Marker, Popup } from 'react-map-gl/mapbox'
-import 'mapbox-gl/dist/mapbox-gl.css'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Polyline } from '@react-google-maps/api'
 import {
     CloudRain, Wind, Thermometer, Droplets, Map as MapIcon,
-    Satellite, Brain, Search, MapPin, Layers
+    Satellite, Brain, Search, MapPin, Layers, AlertCircle, Phone, Globe, ShoppingBag,
+    Star, Clock, ExternalLink, Check, Mic, MicOff, Navigation, Route, Zap, Tractor,
+    Sprout, Heart, Store, Wrench, TrendingUp, Package2, Settings
 } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useLocation } from '@/hooks/useLocation'
 import { useAutonomy } from '@/hooks/useAutonomy'
-import BusinessCard from '@/components/map/BusinessCard'
-import LocationPermissionModal from '@/components/map/LocationPermissionModal'
 import MapSidebar from '@/components/map/MapSidebar'
-import * as turf from '@turf/turf'
+import LocationPermissionModal from '@/components/map/LocationPermissionModal'
+import ResultsPanel from '@/components/map/ResultsPanel'
+import { useSearchParams } from 'next/navigation'
+import { findSuppliers } from '@/app/actions/findSuppliers'
 
-const MAPBOX_TOKEN = 'pk.eyJ1IjoiY2hhcmFmeXNmIiwiYSI6ImNta3o4MWo5eDBidmIzZnM4eGtzbWZ2YjAifQ.FSxH6cWa1lqTfAgizzDzFA'
+const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || ''
+const LIBRARIES: ("places")[] = ['places']
 
 // ----- TYPES & CONFIG -----
-type ViewMode = 'map' | 'satellite'
+type ViewMode = 'roadmap' | 'satellite' | 'hybrid' | 'terrain'
 type WeatherLayerType = 'radar' | 'wind' | 'temp' | 'humidity' | 'none'
 
 interface WeatherMetric {
@@ -36,47 +39,77 @@ const WEATHER_LAYERS: WeatherMetric[] = [
     { id: 'humidity', label: 'Humidity', icon: Droplets, color: 'text-teal-400', unit: '%' },
 ]
 
+interface QuickCategory {
+    id: string
+    label: string
+    icon: any
+    query: string
+    color: string
+}
+
+const QUICK_CATEGORIES: QuickCategory[] = [
+    { id: 'equipment', label: 'Equipment', icon: Tractor, query: 'tractor repair parts dealers', color: 'bg-orange-500' },
+    { id: 'inputs', label: 'Inputs', icon: Sprout, query: 'agricultural supply fertilizer seeds', color: 'bg-green-500' },
+    { id: 'livestock', label: 'Livestock', icon: Heart, query: 'veterinary clinic animal feed', color: 'bg-red-500' },
+    { id: 'market', label: 'Markets', icon: Store, query: 'farmers market wholesale buyers', color: 'bg-blue-500' },
+    { id: 'services', label: 'Services', icon: Wrench, query: 'irrigation equipment storage silos', color: 'bg-purple-500' },
+    { id: 'emergency', label: 'Emergency', icon: Zap, query: 'emergency repair 24/7 service', color: 'bg-red-600' },
+]
+
 export default function SmartMap() {
-    const mapRef = useRef<MapRef>(null)
-    const [viewMode, setViewMode] = useState<ViewMode>('satellite') // Default to satellite per user request implication
+    const searchParams = useSearchParams()
+    const initialSearch = searchParams.get('search')
+    const mode = searchParams.get('mode')
+    const isSupplierMode = mode === 'supplier'
+    const [viewMode, setViewMode] = useState<ViewMode>('satellite')
     const [activeLayer, setActiveLayer] = useState<WeatherLayerType>('none')
-    const [weatherData, setWeatherData] = useState<any>(null)
+    const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null)
     const [aiInsight, setAiInsight] = useState<string>('')
-    const [localMetrics, setLocalMetrics] = useState<any>({})
-    const [suggestedSearch, setSuggestedSearch] = useState<string>('Command AI Agent...')
+    const [searchTerm, setSearchTerm] = useState(initialSearch || '')
+    const [isSearching, setIsSearching] = useState(false)
+    const [foundSuppliers, setFoundSuppliers] = useState<any[]>([])
+    const [selectedSupplier, setSelectedSupplier] = useState<any>(null)
+    const [reservationStatus, setReservationStatus] = useState<'idle' | 'loading' | 'success'>('idle')
+    const [isListening, setIsListening] = useState(false)
+    const [activeCategory, setActiveCategory] = useState<string | null>(null)
+    const [routePath, setRoutePath] = useState<any>(null)
+    const [showRoutePanel, setShowRoutePanel] = useState(false)
+    const [showResults, setShowResults] = useState(false)
+    const [suggestions, setSuggestions] = useState<string[]>([])
 
     // Smart Map Features
-    const { envData, chatContext, activeProfile, system } = useAutonomy()
+    const { envData } = useAutonomy()
     const { requestLocation } = useLocation()
+    const [showPermissionModal, setShowPermissionModal] = useState(false)
 
-    // robust fallback location (Casablanca) to PREVENT LOADING HANG
-    const location = useMemo(() => {
+    // Google Maps Loader
+    const { isLoaded, loadError } = useJsApiLoader({
+        id: 'google-map-script',
+        googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+        libraries: LIBRARIES
+    })
+
+    // robust fallback location (Casablanca)
+    const center = useMemo(() => {
         if (envData?.location) {
             return {
-                latitude: envData.location.lat,
-                longitude: envData.location.lng,
-                source: envData.location.source,
-                accuracy: 0
+                lat: envData.location.lat,
+                lng: envData.location.lng,
             }
         }
-        // DEFAULT FALLBACK
         return {
-            latitude: 33.5731,
-            longitude: -7.5898,
-            source: 'default',
-            accuracy: 0
+            lat: 33.5731,
+            lng: -7.5898,
         }
     }, [envData?.location])
 
-    const [analysisData, setAnalysisData] = useState<any>(null)
-    const [analysisGeoJSON, setAnalysisGeoJSON] = useState<any>(null)
-    const [isAnalyzing, setIsAnalyzing] = useState(false)
-    const [showPermissionModal, setShowPermissionModal] = useState(false)
-
-    // Data Refresh Simulation (Radar Sweep)
-    // ... (Keep existing generation logic simplifed for brevity, or reuse)
-    // For safety, I'll inline a minimal generator or remove if complex.
-    // Reusing the simple generator logic.
+    // Effect: Handle Initial Search
+    useEffect(() => {
+        if (initialSearch && isLoaded && mapInstance) {
+            console.log('🎬 Initial search triggered:', initialSearch)
+            handleSearch(initialSearch)
+        }
+    }, [initialSearch, isLoaded, mapInstance])
 
     // Check Persistence on Mount
     useEffect(() => {
@@ -86,369 +119,560 @@ export default function SmartMap() {
         } else if (!permission) {
             setShowPermissionModal(true)
         }
-
-        // AUTO-ANALYZE for Demo (Simulate "Perfect" state)
-        // Wait a bit for map to settle
-        if (!analysisData) {
-            setTimeout(() => {
-                performAnalysis("rice field analysis")
-            }, 1500)
-        }
     }, [])
 
-    const performAnalysis = async (query: string) => {
-        setIsAnalyzing(true)
-        setAiInsight("Agent analyzing viewport...")
+    const handleSearch = async (query: string) => {
+        if (!query) return
+        
+        console.log('🔍 Search initiated:', query)
+        console.log('📍 Center location:', center)
+        
+        setIsSearching(true)
+        setAiInsight("🧠 AI analyzing your request globally...")
+        setSearchTerm(query)
+        setSelectedSupplier(null)
+        setRoutePath(null)
 
         try {
-            const bounds = mapRef.current?.getBounds()
-            const payload = {
-                query,
-                bounds: bounds ? { _sw: bounds.getSouthWest(), _ne: bounds.getNorthEast() } : null,
-                location
-            }
-
-            const res = await fetch('/api/analyze', {
-                method: 'POST',
-                body: JSON.stringify(payload)
-            })
-            const data = await res.json()
-
-            if (data.success) {
-                setAnalysisData(data.sidebarData)
-                setAnalysisGeoJSON(data.geojson)
-                setAiInsight(data.insight)
-
-                // Fly to polygon if exists
-                if (data.geojson?.features?.[0]?.geometry?.coordinates) {
-                    // Optional: Fly to fit bounds
-                }
-            }
-        } catch (e) {
-            console.error("Analysis failed", e)
-            setAiInsight("Connection to Analysis Agent failed.")
-        } finally {
-            setIsAnalyzing(false)
-        }
-    }
-
-    // Sync map to location
-    useEffect(() => {
-        if (location && mapRef.current) {
-            mapRef.current.flyTo({
-                center: [location.longitude, location.latitude],
-                zoom: 14, // Closer zoom for field view
-                essential: true
-            })
-        }
-    }, [location?.longitude, location?.latitude])
-
-    const handleEnableLocation = () => {
-        localStorage.setItem('leafscan_location_permission', 'granted')
-        requestLocation()
-        setShowPermissionModal(false)
-    }
-
-    const handleUseDefault = () => {
-        localStorage.setItem('leafscan_location_permission', 'denied')
-        setShowPermissionModal(false)
-    }
-
-    // Toggle map style
-    const toggleMapStyle = () => {
-        if (!mapRef.current) return
-
-        const newMode = viewMode === 'satellite' ? 'map' : 'satellite'
-        setViewMode(newMode)
-
-        // Use mapRef.current for API-conformant access if possible, or just state binding
-        // Logic handled by <Map> prop updates on re-render generally, but forced ref usage below:
-    }
-
-    // --- ALU System Integration --- 
-    const [aluData, setAluData] = useState<any>(null)
-    const [isAluAnalyzing, setIsAluAnalyzing] = useState(false)
-    const [aluMetrics, setAluMetrics] = useState<any>(null)
-
-    const performDeepALU = async () => {
-        if (!mapRef.current) return
-        setIsAluAnalyzing(true)
-        setShowPermissionModal(false) // Dismiss if open
-
-        try {
-            const bounds = mapRef.current.getBounds()
-            const response = await fetch('/api/alu_analyze', {
+            console.log('📡 Calling /api/map-query...')
+            
+            // Use new advanced AI map query API
+            const response = await fetch('/api/map-query', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    query: "Analyze landscape structure",
-                    bounds: {
-                        _sw: { lat: bounds.getSouth(), lng: bounds.getWest() },
-                        _ne: { lat: bounds.getNorth(), lng: bounds.getEast() }
-                    },
-                    zoom: mapRef.current.getZoom()
-                })
+                body: JSON.stringify({ query, location: center, language: 'en' })
             })
 
-            const data = await response.json()
-            if (data.shards) {
-                setAluData(data.shards)
-                setAluMetrics(data.metrics)
-
-                // Merge features for simple display
-                const allFeatures = Object.values(data.shards).flatMap((s: any) => s.features)
-                setAnalysisGeoJSON({ type: 'FeatureCollection', features: allFeatures })
-
-                // --- FIX: Populate Sidebar with ALU Insights ---
-                setAnalysisData({
-                    cropType: "Mixed Agri-Landscape",
-                    confidence: "AI-Verified",
-                    size: "View Analysis", // Dynamic based on bounds in real app
-                    fieldId: "ALU-GEN-3",
-                    sownDate: "Detected",
-                    harvestDate: "Est. 2mo",
-                    waterDistance: 0.12, // Mocked from "Water" layer presence
-                    roadDistance: 0.05,
-                    practices: [ // Simulate practices based on the segmentation
-                        {
-                            year: 2024,
-                            months: [
-                                { month: 'Jan', crop: 'Fallow', color: '#D2691E' },
-                                { month: 'Feb', crop: 'Prep', color: '#F4A460' },
-                                { month: 'Mar', crop: 'Sowing', color: '#228B22' },
-                                { month: 'Apr', crop: 'Growth', color: '#228B22' },
-                                { month: 'May', crop: 'Growth', color: '#228B22' },
-                                { month: 'Jun', crop: 'Harvest', color: '#FFD700' }
-                            ]
-                        }
-                    ]
-                })
+            console.log('📥 Response status:', response.status)
+            
+            if (!response.ok) {
+                throw new Error(`API error: ${response.status}`)
             }
-        } catch (e) {
-            console.error("ALU Analysis Failed", e)
-        } finally {
-            setIsAluAnalyzing(false)
+
+            const data = await response.json()
+            console.log('📊 API Response:', data)
+
+            setFoundSuppliers(data.places || [])
+            setAiInsight(data.aiInsight || 'Search completed')
+            setSuggestions(data.suggestions || [])
+            setShowResults(data.places && data.places.length > 0)
+            setIsSearching(false)
+
+            console.log(`✅ Found ${data.places?.length || 0} results`)
+
+            // Handle route visualization
+            if (data.route) {
+                setRoutePath(data.route)
+                setShowRoutePanel(true)
+            }
+
+            // Fit bounds
+            if (mapInstance && data.places && data.places.length > 0) {
+                const bounds = new google.maps.LatLngBounds()
+                data.places.forEach((m: any) => bounds.extend({ lat: m.lat, lng: m.lng }))
+                bounds.extend(center)
+                mapInstance.fitBounds(bounds)
+            }
+        } catch (error) {
+            console.error('❌ Search error:', error)
+            setAiInsight("Failed to process query. Please check console for details.")
+            setIsSearching(false)
         }
+    }
+
+    const handleVoiceInput = () => {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            alert('Voice input not supported in this browser')
+            return
+        }
+
+        const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition
+        const recognition = new SpeechRecognition()
+        recognition.lang = 'en-US'
+        recognition.continuous = false
+        recognition.interimResults = false
+
+        recognition.onstart = () => {
+            setIsListening(true)
+            setAiInsight('🎤 Listening...')
+        }
+
+        recognition.onresult = (event: any) => {
+            const transcript = event.results[0][0].transcript
+            setSearchTerm(transcript)
+            setIsListening(false)
+            handleSearch(transcript)
+        }
+
+        recognition.onerror = () => {
+            setIsListening(false)
+            setAiInsight('Voice input failed. Please try typing.')
+        }
+
+        recognition.onend = () => {
+            setIsListening(false)
+        }
+
+        recognition.start()
+    }
+
+    const handleCategoryClick = (category: QuickCategory) => {
+        setActiveCategory(category.id)
+        handleSearch(category.query)
+    }
+
+    const handleReserve = () => {
+        setReservationStatus('loading')
+        setTimeout(() => {
+            setReservationStatus('success')
+            setTimeout(() => {
+                setReservationStatus('idle')
+                setSelectedSupplier(null)
+            }, 2000)
+        }, 1500)
+    }
+
+    const onLoad = useCallback((map: google.maps.Map) => {
+        setMapInstance(map)
+    }, [])
+
+    const onUnmount = useCallback(() => {
+        setMapInstance(null)
+    }, [])
+
+    const [sidebarData, setSidebarData] = useState<any>(null)
+
+    if (loadError) {
+        return (
+            <div className="w-full h-[85vh] bg-stone-100 flex items-center justify-center rounded-[2rem] border border-stone-200 p-8 text-center">
+                <div className="max-w-md">
+                    <AlertCircle className="w-12 h-12 text-stone-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-bold text-stone-700 mb-2">Google Maps Failed to Load</h3>
+                    <p className="text-sm text-stone-500">Please check your API key configuration. For development, ensure <code className="bg-stone-200 px-1 rounded">NEXT_PUBLIC_GOOGLE_MAPS_KEY</code> is set.</p>
+                </div>
+            </div>
+        )
+    }
+
+    if (!isLoaded) {
+        return (
+            <div className="w-full h-[85vh] bg-stone-100 flex items-center justify-center rounded-[2rem] border border-stone-200">
+                <div className="flex flex-col items-center gap-3">
+                    <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest">Initializing Satellite Link...</p>
+                </div>
+            </div>
+        )
     }
 
     return (
-        <div className="relative w-full h-[85vh] bg-stone-100 overflow-hidden flex font-sans rounded-[2rem] shadow-xl border border-stone-200">
+        <div className="relative w-full h-[85vh] bg-stone-100 overflow-hidden flex font-sans rounded-[2rem] shadow-xl border border-stone-200 group/map-container">
 
             <LocationPermissionModal
                 isOpen={showPermissionModal}
-                onEnable={handleEnableLocation}
-                onDefault={handleUseDefault}
+                onEnable={() => {
+                    localStorage.setItem('leafscan_location_permission', 'granted')
+                    requestLocation()
+                    setShowPermissionModal(false)
+                }}
+                onDefault={() => {
+                    localStorage.setItem('leafscan_location_permission', 'denied')
+                    setShowPermissionModal(false)
+                }}
             />
 
-            {/* --- LEFT: MAP AREA --- */}
-            <div className="flex-1 relative h-full">
+            {/* --- MAP AREA --- */}
+            <div className={`relative h-full transition-all duration-500 ease-in-out ${isSupplierMode ? 'w-full' : 'flex-1'}`}>
 
-                {/* 1. View Controls (Top Left) & DEEP SCAN */}
-                <div className="absolute top-4 left-4 z-10 flex gap-2">
-                    <div className="flex bg-white/90 backdrop-blur shadow-sm rounded-lg p-1 border border-gray-200">
-                        <button
-                            onClick={() => setViewMode('map')}
-                            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${viewMode === 'map' ? 'bg-gray-900 text-white shadow-sm' : 'text-stone-600 hover:bg-stone-100'}`}
-                        >
-                            Map
-                        </button>
-                        <button
-                            onClick={() => setViewMode('satellite')}
-                            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${viewMode === 'satellite' ? 'bg-gray-900 text-white shadow-sm' : 'text-stone-600 hover:bg-stone-100'}`}
-                        >
-                            Satellite
-                        </button>
-                    </div>
-
-                    {/* DEEP SCAN BUTTON (ALU) */}
-                    <button
-                        onClick={performDeepALU}
-                        disabled={isAluAnalyzing}
-                        className="bg-emerald-600/90 backdrop-blur hover:bg-emerald-700 text-white px-4 py-1.5 rounded-lg shadow-md border border-emerald-500/50 flex items-center gap-2 transition-all disabled:opacity-70 disabled:cursor-wait"
-                    >
-                        {isAluAnalyzing ? (
-                            <>
-                                <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                <span className="text-xs font-bold tracking-wide">SCANNING...</span>
-                            </>
-                        ) : (
-                            <>
-                                <Layers className="w-4 h-4" />
-                                <span className="text-xs font-bold tracking-wide">DEEP SCAN (ALU)</span>
-                            </>
-                        )}
-                    </button>
-                </div>
-
-                {/* ALU METRICS PANEL */}
-                {aluMetrics && (
-                    <div className="absolute top-16 left-4 z-20 pointer-events-auto bg-stone-900/90 backdrop-blur text-stone-200 p-4 rounded-xl border border-stone-700 shadow-2xl w-56 animate-in slide-in-from-left-4 fade-in duration-300">
-                        <div className="flex items-center justify-between mb-3 border-b border-stone-700 pb-2">
-                            <h3 className="text-xs font-bold text-white uppercase tracking-wider">Segmentation Metrics</h3>
-                            <div className="text-[10px] bg-emerald-900/50 text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-800">
-                                Passing
-                            </div>
+                {/* 1. View Controls (Conditional) */}
+                {!isSupplierMode && (
+                    <div className="absolute top-4 left-4 z-10 flex flex-col gap-2 pointer-events-none">
+                        {/* View Mode */}
+                        <div className="flex bg-white/90 backdrop-blur shadow-sm rounded-lg p-1 border border-gray-200 pointer-events-auto self-start">
+                            <button
+                                onClick={() => setViewMode('roadmap')}
+                                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${viewMode === 'roadmap' ? 'bg-gray-900 text-white shadow-sm' : 'text-stone-600 hover:bg-stone-100'}`}
+                            >
+                                Map
+                            </button>
+                            <button
+                                onClick={() => setViewMode('satellite')}
+                                className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${viewMode === 'satellite' ? 'bg-gray-900 text-white shadow-sm' : 'text-stone-600 hover:bg-stone-100'}`}
+                            >
+                                Satellite
+                            </button>
                         </div>
-                        <div className="space-y-3">
-                            <div>
-                                <div className="flex justify-between text-[10px] uppercase text-stone-400 mb-1">
-                                    <span>mIoU Score</span>
-                                    <span className="text-white font-mono">{(aluMetrics.mIoU * 100).toFixed(1)}%</span>
-                                </div>
-                                <div className="h-1 bg-stone-800 rounded-full overflow-hidden">
-                                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${aluMetrics.mIoU * 100}%` }} />
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2 text-xs">
-                                <div className="bg-stone-800/50 p-2 rounded">
-                                    <span className="block text-[10px] text-stone-500 uppercase">FN Rate</span>
-                                    <span className="font-mono text-amber-400">{aluMetrics.fnRate}%</span>
-                                </div>
-                                <div className="bg-stone-800/50 p-2 rounded">
-                                    <span className="block text-[10px] text-stone-500 uppercase">Over Seg</span>
-                                    <span className="font-mono text-blue-400">{aluMetrics.overSeg}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <p className="text-[9px] text-stone-500 mt-3 pt-2 border-t border-stone-800 italic">
-                            Based on Paper 2411.05359 (Country-Scale ALU)
-                        </p>
                     </div>
                 )}
 
-                {/* 2. Legend (Bottom Left) */}
-                <div className="absolute bottom-6 left-4 z-10 flex flex-col gap-2">
-                    {/* Reference Legend */}
-                    <div className="bg-[#1a1a1a]/90 backdrop-blur text-white p-3 rounded-lg border border-gray-700 shadow-xl w-40">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-bold text-gray-300">Legend</span>
-                        </div>
-                        <div className="space-y-1.5 text-[10px]">
-                            <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 bg-[#8B4513] rounded-sm opacity-80 border border-white/20"></div>
-                                <span>Field</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 bg-purple-500 rounded-sm opacity-80"></div>
-                                <span>Orchard/Tree</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 bg-green-700 rounded-sm opacity-80"></div>
-                                <span>Woodland</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 bg-blue-400 rounded-sm opacity-80"></div>
-                                <span>Farm Pond</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 bg-red-500 rounded-sm opacity-80"></div>
-                                <span>Dug Well</span>
-                            </div>
-                        </div>
+                {/* Back Button for Supplier Mode */}
+                {isSupplierMode && (
+                    <div className="absolute top-4 left-4 z-10">
+                        <a href="/dashboard/scan" className="bg-white/90 backdrop-blur hover:bg-white text-stone-700 px-4 py-2 rounded-xl shadow-lg border border-stone-200 font-bold text-xs flex items-center gap-2 hover:scale-105 transition-transform">
+                            <MapIcon className="w-4 h-4" />
+                            Back to Report
+                        </a>
                     </div>
+                )}
 
-                    <div className="bg-white/90 backdrop-blur p-2 rounded-xl border border-gray-200 shadow-sm w-48">
-                        <div className="flex items-center gap-2 mb-2 px-1">
-                            <Layers className="w-3 h-3 text-gray-400" />
-                            <span className="text-[10px] font-bold uppercase text-gray-500">Overlays</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-1">
-                            {WEATHER_LAYERS.map(layer => (
-                                <button
-                                    key={layer.id}
-                                    onClick={() => setActiveLayer(activeLayer === layer.id ? 'none' : layer.id)}
-                                    className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors ${activeLayer === layer.id ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'hover:bg-gray-50 text-gray-600'
-                                        }`}
-                                >
-                                    <layer.icon className={`w-3 h-3 ${layer.color.replace('text-', 'text-opacity-80 text-')}`} />
-                                    {layer.label}
-                                </button>
-                            ))}
-                        </div>
+                {/* AI Insight Pill */}
+                {aiInsight && (
+                    <div className={`absolute z-10 pointer-events-none flex justify-center w-full ${isSupplierMode ? 'top-20' : 'top-16 left-4 w-auto justify-start'}`}>
+                        <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="bg-stone-900/80 backdrop-blur-md text-white px-4 py-2 rounded-xl border border-white/10 shadow-lg flex items-center gap-2 max-w-sm pointer-events-auto"
+                        >
+                            <Brain className="w-4 h-4 text-emerald-400" />
+                            <span className="text-xs font-medium">{aiInsight}</span>
+                        </motion.div>
                     </div>
-                </div>
+                )}
 
-                {/* 3. Search / Agent Bar */}
-                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 w-96">
+                {/* 2. Search / Agent Bar with Voice */}
+                <div className={`absolute z-10 transition-all duration-500 ${isSupplierMode ? 'top-6 left-1/2 -translate-x-1/2 w-[500px] max-w-[90%]' : 'top-4 left-1/2 -translate-x-1/2 w-96 max-w-[90%]'}`}>
                     <div className="relative group">
                         <div className="absolute inset-0 bg-emerald-500/20 blur-md rounded-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                         <input
                             type="text"
-                            placeholder={isAnalyzing ? "Analyzing..." : "Ask Agent to analyze map..."}
-                            disabled={isAnalyzing}
-                            className="w-full bg-white/90 backdrop-blur border border-stone-200 rounded-xl py-2.5 pl-10 pr-4 text-sm text-stone-900 placeholder:text-stone-500 shadow-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder={isSearching ? "🧠 AI analyzing globally..." : (isSupplierMode ? "Search for product or supplier..." : "Ask: 'Find nearest tractor repair' or 'Route to fuel station'")}
+                            className={`w-full bg-white/90 backdrop-blur border border-stone-200 rounded-xl pl-11 pr-16 text-sm text-stone-900 placeholder:text-stone-500 shadow-xl focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-medium ${isSupplierMode ? 'py-4 text-base' : 'py-3'}`}
                             onKeyDown={(e) => {
-                                if (e.key === 'Enter') performAnalysis(e.currentTarget.value)
+                                if (e.key === 'Enter') handleSearch(e.currentTarget.value)
                             }}
                         />
-                        <div className="absolute left-3 top-2.5 z-20 text-stone-400">
-                            {isAnalyzing ? <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" /> : <Brain className="w-4 h-4" />}
+                        <div className={`absolute left-3.5 z-20 text-stone-400 ${isSupplierMode ? 'top-4' : 'top-3'}`}>
+                            {isSearching ? <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" /> : <Search className="w-5 h-5 text-emerald-600" />}
                         </div>
+                        {/* Voice Button */}
+                        <button
+                            onClick={handleVoiceInput}
+                            disabled={isListening}
+                            className={`absolute right-3 ${isSupplierMode ? 'top-3.5' : 'top-2.5'} p-2 rounded-lg transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
+                            title="Voice Search"
+                        >
+                            {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                        </button>
                     </div>
                 </div>
 
-                <Map
-                    ref={mapRef}
-                    initialViewState={{
-                        longitude: location.longitude,
-                        latitude: location.latitude,
-                        zoom: 14
+                {/* 3. Quick Category Filters - Only in Full Mode */}
+                {!isSupplierMode && (
+                    <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10 flex gap-2 pointer-events-auto max-w-[95%] overflow-x-auto pb-2 scrollbar-hide">
+                        {QUICK_CATEGORIES.map((cat) => {
+                            const Icon = cat.icon
+                            return (
+                                <button
+                                    key={cat.id}
+                                    onClick={() => handleCategoryClick(cat)}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap shadow-md ${
+                                        activeCategory === cat.id
+                                            ? `${cat.color} text-white scale-105`
+                                            : 'bg-white/90 text-stone-700 hover:bg-white hover:scale-105'
+                                    }`}
+                                >
+                                    <Icon className="w-3.5 h-3.5" />
+                                    {cat.label}
+                                </button>
+                            )
+                        })}
+                    </div>
+                )}
+
+                {/* 3. Google Map */}
+                <GoogleMap
+                    mapContainerStyle={{ width: '100%', height: '100%' }}
+                    center={center}
+                    zoom={13}
+                    options={{
+                        mapTypeId: viewMode,
+                        zoomControl: false,
+                        streetViewControl: false,
+                        mapTypeControl: false,
+                        fullscreenControl: false,
+                        styles: viewMode === 'roadmap' ? [
+                            {
+                                featureType: 'poi',
+                                elementType: 'labels.icon',
+                                stylers: [{ visibility: 'off' }]
+                            }
+                        ] : []
                     }}
-                    mapStyle={viewMode === 'satellite' ? "mapbox://styles/mapbox/satellite-streets-v12" : "mapbox://styles/mapbox/light-v11"}
-                    mapboxAccessToken={MAPBOX_TOKEN}
-                    terrain={{ source: 'mapbox-dem', exaggeration: 1.5 }}
+                    onLoad={onLoad}
+                    onUnmount={onUnmount}
                 >
-                    <Source
-                        id="mapbox-dem"
-                        type="raster-dem"
-                        url="mapbox://mapbox.mapbox-terrain-dem-v1"
-                        tileSize={512}
-                        maxzoom={14}
+                    {/* User Marker */}
+                    <Marker
+                        position={center}
+                        icon={{
+                            path: google.maps.SymbolPath.CIRCLE,
+                            scale: 10,
+                            fillColor: "#3B82F6",
+                            fillOpacity: 1,
+                            strokeColor: "white",
+                            strokeWeight: 2,
+                        }}
+                        title="Your Farm"
                     />
 
-                    <NavigationControl position="bottom-right" />
-                    <ScaleControl />
+                    {/* Supplier Markers with Priority Colors */}
+                    {foundSuppliers.map((supplier) => {
+                        const priorityColors: Record<string, string> = {
+                            critical: '#dc2626',  // Red
+                            high: '#ea580c',      // Orange
+                            medium: '#16a34a',    // Green
+                            low: '#3b82f6'        // Blue
+                        }
+                        const color = priorityColors[supplier.priority] || '#16a34a'
+                        
+                        return (
+                            <Marker
+                                key={supplier.id}
+                                position={{ lat: supplier.lat, lng: supplier.lng }}
+                                onClick={() => setSelectedSupplier(supplier)}
+                                icon={{
+                                    path: google.maps.SymbolPath.CIRCLE,
+                                    scale: 12,
+                                    fillColor: color,
+                                    fillOpacity: 1,
+                                    strokeColor: '#ffffff',
+                                    strokeWeight: 3,
+                                }}
+                                label={{
+                                    text: String(foundSuppliers.indexOf(supplier) + 1),
+                                    color: '#ffffff',
+                                    fontSize: '12px',
+                                    fontWeight: 'bold'
+                                }}
+                                animation={supplier.priority === 'critical' ? google.maps.Animation.BOUNCE : undefined}
+                            />
+                        )
+                    })}
 
-                    {/* AI Analysis Layer (Polygons) */}
-                    {analysisGeoJSON && (
-                        <Source id="ai-analysis" type="geojson" data={analysisGeoJSON}>
-                            <Layer
-                                id="ai-fill"
-                                type="fill"
-                                paint={{
-                                    'fill-color': ['get', 'fill'], // Use per-feature color (Green/Blue/Brown)
-                                    'fill-opacity': 0.6
-                                }}
-                            />
-                            <Layer
-                                id="ai-line"
-                                type="line"
-                                paint={{
-                                    'line-color': '#ffffff',
-                                    'line-width': 2
-                                }}
-                            />
-                        </Source>
+                    {/* Route Polyline */}
+                    {routePath && routePath.waypoints && routePath.waypoints.length > 1 && (
+                        <Polyline
+                            path={routePath.waypoints.map((w: any) => ({ lat: w.lat, lng: w.lng }))}
+                            options={{
+                                strokeColor: '#16a34a',
+                                strokeOpacity: 0.8,
+                                strokeWeight: 4,
+                                geodesic: true,
+                                icons: [{
+                                    icon: {
+                                        path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                                        scale: 3,
+                                        fillColor: '#16a34a',
+                                        fillOpacity: 1,
+                                        strokeWeight: 1,
+                                        strokeColor: '#ffffff'
+                                    },
+                                    offset: '100%',
+                                    repeat: '100px'
+                                }]
+                            }}
+                        />
                     )}
 
-                    {/* User Location Marker */}
-                    <Marker longitude={location.longitude} latitude={location.latitude}>
-                        <div className="relative flex items-center justify-center group">
-                            <div className={`absolute w-12 h-12 rounded-full animate-ping opacity-30 ${viewMode === 'satellite' ? 'bg-emerald-500' : 'bg-blue-500'}`} />
-                            <div className={`w-4 h-4 border-2 border-white rounded-full shadow-lg relative z-10 ${viewMode === 'satellite' ? 'bg-emerald-500' : 'bg-blue-500'}`} />
+                    {/* Info Window */}
+                    {selectedSupplier && (
+                        <InfoWindow
+                            position={{ lat: selectedSupplier.lat, lng: selectedSupplier.lng }}
+                            onCloseClick={() => {
+                                setSelectedSupplier(null)
+                                setReservationStatus('idle')
+                            }}
+                        >
+                            <div className="p-3 min-w-[260px] max-w-[300px] font-sans">
+                                {/* Header: Name & Open Status */}
+                                <div className="flex justify-between items-start gap-2 mb-1">
+                                    <h3 className="font-bold text-gray-900 text-base leading-tight">{selectedSupplier.name}</h3>
+                                    {selectedSupplier.open_now !== undefined && (
+                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${selectedSupplier.open_now ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                                            {selectedSupplier.open_now ? 'OPEN' : 'CLOSED'}
+                                        </span>
+                                    )}
+                                </div>
 
-                            {/* Label on Hover */}
-                            <div className="absolute top-6 whitespace-nowrap bg-black/70 text-white text-[10px] px-2 py-1 rounded backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                                Your Location
+                                {/* Address */}
+                                <p className="text-[11px] text-stone-500 mb-3 leading-snug">{selectedSupplier.address}</p>
+
+                                {/* Tags & Rating */}
+                                <div className="flex items-center flex-wrap gap-2 mb-3">
+                                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] uppercase font-bold rounded shadow-sm border border-emerald-200">{selectedSupplier.type}</span>
+
+                                    {selectedSupplier.rating && (
+                                        <div className="flex items-center gap-1 bg-yellow-50 px-1.5 py-0.5 rounded border border-yellow-100">
+                                            <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+                                            <span className="text-xs font-bold text-stone-700">{selectedSupplier.rating}</span>
+                                            <span className="text-[10px] text-stone-400">({selectedSupplier.user_ratings_total || 0})</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* AI Description */}
+                                <p className="text-xs text-stone-600 mb-4 leading-relaxed bg-stone-50 p-2.5 rounded-lg border border-stone-100 italic relative">
+                                    <Brain className="w-3 h-3 text-emerald-400 absolute top-2 right-2 opacity-50" />
+                                    "{selectedSupplier.description}"
+                                </p>
+
+                                {/* details list */}
+                                <div className="space-y-2 text-xs text-stone-600 mb-4">
+                                    {selectedSupplier.phone && (
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 shrink-0">
+                                                <Phone className="w-3 h-3" />
+                                            </div>
+                                            <span className="font-medium select-all">{selectedSupplier.phone}</span>
+                                        </div>
+                                    )}
+
+                                    {selectedSupplier.website && (
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="w-6 h-6 rounded-full bg-stone-50 flex items-center justify-center text-stone-500 shrink-0">
+                                                <Globe className="w-3 h-3" />
+                                            </div>
+                                            <a
+                                                href={selectedSupplier.website}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="underline decoration-stone-300 hover:text-emerald-600 transition-colors flex items-center gap-1"
+                                            >
+                                                Visit Website <ExternalLink className="w-3 h-3" />
+                                            </a>
+                                        </div>
+                                    )}
+
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-6 h-6 rounded-full bg-amber-50 flex items-center justify-center text-amber-500 shrink-0">
+                                            <ShoppingBag className="w-3 h-3" />
+                                        </div>
+                                        <span>Stock Level: <span className={`font-bold ${selectedSupplier.stock === 'High' ? 'text-green-600' :
+                                            selectedSupplier.stock === 'Medium' ? 'text-yellow-600' :
+                                                selectedSupplier.stock === 'Low' ? 'text-red-500' : 'text-stone-500'
+                                            }`}>{selectedSupplier.stock}</span></span>
+                                    </div>
+                                </div>
+
+                                {/* Reserve Button */}
+                                <button
+                                    onClick={handleReserve}
+                                    disabled={reservationStatus !== 'idle'}
+                                    className={`w-full text-sm font-bold py-2.5 rounded-lg shadow-md transition-all flex items-center justify-center gap-2 group ${reservationStatus === 'success'
+                                        ? 'bg-green-600 text-white hover:bg-green-700'
+                                        : 'bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-lg'
+                                        }`}
+                                >
+                                    {reservationStatus === 'idle' && (
+                                        <>
+                                            <span>Reserve Item</span>
+                                            <MapPin className="w-3 h-3 opacity-70 group-hover:opacity-100" />
+                                        </>
+                                    )}
+                                    {reservationStatus === 'loading' && (
+                                        <>
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            <span>Contacting Supplier...</span>
+                                        </>
+                                    )}
+                                    {reservationStatus === 'success' && (
+                                        <>
+                                            <Check className="w-4 h-4" />
+                                            <span>Reservation Sent!</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </InfoWindow>
+                    )}
+                </GoogleMap>
+
+                {/* Results Panel */}
+                <AnimatePresence>
+                    {showResults && !isSupplierMode && foundSuppliers.length > 0 && (
+                        <ResultsPanel
+                            results={foundSuppliers}
+                            onSelectResult={(result) => {
+                                setSelectedSupplier(result)
+                                if (mapInstance) {
+                                    mapInstance.panTo({ lat: result.lat, lng: result.lng })
+                                    mapInstance.setZoom(15)
+                                }
+                            }}
+                            selectedResult={selectedSupplier}
+                            onClose={() => setShowResults(false)}
+                        />
+                    )}
+                </AnimatePresence>
+
+                {/* Suggestions Bar */}
+                {suggestions.length > 0 && !isSupplierMode && (
+                    <motion.div
+                        initial={{ y: 50, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        className="absolute bottom-6 right-4 z-10 bg-white/95 backdrop-blur-lg rounded-xl shadow-xl border border-gray-200 p-4 max-w-md"
+                    >
+                        <div className="flex items-start gap-3">
+                            <div className="p-2 bg-emerald-100 rounded-lg shrink-0">
+                                <Brain className="w-4 h-4 text-emerald-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h4 className="text-sm font-bold text-gray-900 mb-2">AI Suggestions</h4>
+                                <ul className="space-y-1.5">
+                                    {suggestions.map((suggestion, idx) => (
+                                        <li key={idx} className="text-xs text-gray-700 flex items-start gap-2">
+                                            <span className="text-emerald-500 mt-0.5">→</span>
+                                            <span>{suggestion}</span>
+                                        </li>
+                                    ))}
+                                </ul>
                             </div>
                         </div>
-                    </Marker>
+                    </motion.div>
+                )}
 
-                </Map>
+                {/* Legend (Bottom Left) - Conditional */}
+                {!isSupplierMode && !showResults && (
+                    <div className="absolute bottom-6 left-4 z-10 flex flex-col gap-2">
+                        <div className="bg-white/90 backdrop-blur p-2 rounded-xl border border-gray-200 shadow-sm w-48">
+                            <div className="flex items-center gap-2 mb-2 px-1">
+                                <Layers className="w-3 h-3 text-gray-400" />
+                                <span className="text-[10px] font-bold uppercase text-gray-500">Overlays</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-1">
+                                {WEATHER_LAYERS.map(layer => (
+                                    <button
+                                        key={layer.id}
+                                        onClick={() => setActiveLayer(activeLayer === layer.id ? 'none' : layer.id)}
+                                        className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors ${activeLayer === layer.id ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'hover:bg-gray-50 text-gray-600'
+                                            }`}
+                                    >
+                                        <layer.icon className={`w-3 h-3 ${layer.color.replace('text-', 'text-opacity-80 text-')}`} />
+                                        {layer.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
             </div>
 
-            {/* --- RIGHT: SIDEBAR (Properties) --- */}
-            <MapSidebar data={analysisData} />
+            {/* --- SIDEBAR (Hidden in Supplier Mode) --- */}
+            <AnimatePresence>
+                {!isSupplierMode && (
+                    <motion.div
+                        initial={{ width: 0, opacity: 0 }}
+                        animate={{ width: 320, opacity: 1 }}
+                        exit={{ width: 0, opacity: 0 }}
+                        className="h-full border-l border-stone-200 bg-white shadow-xl z-20"
+                    >
+                        <MapSidebar data={foundSuppliers.length > 0 ? foundSuppliers[0] : sidebarData} />
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
         </div>
     )

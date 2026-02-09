@@ -1,445 +1,228 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import { VISION_SYSTEM_PROMPT } from '@/lib/vision-prompt'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
-/**
- * SURGICAL PRECISION LEAF ANALYSIS - Complete Rewrite
- * 
- * Two-Stage Pipeline:
- * 1. Plant Identification (NO assumptions)
- * 2. Precise Lesion Detection (pixel-level)
- */
-
 export async function POST(request: NextRequest) {
   try {
-    const { image, location } = await request.json()
+    const { image, images, location } = await request.json()
 
-    if (!image) {
+    if (!image && (!images || images.length === 0)) {
       return NextResponse.json({ error: 'No image provided' }, { status: 400 })
     }
 
     // Check API key
     const apiKey = process.env.GEMINI_API_KEY
-    console.log('🔑 API Key status:', apiKey ? `Present (${apiKey.substring(0, 10)}...)` : '❌ MISSING')
-    
     if (!apiKey) {
-      console.error('❌ GEMINI_API_KEY not found in environment variables')
+      console.error('❌ GEMINI_API_KEY not found')
       throw new Error('API key not configured')
     }
 
-    console.log('🔬 SURGICAL PRECISION ANALYSIS STARTED')
-    console.log('📍 Location:', location || 'Unknown')
-    console.log('🤖 Model: gemini-3-pro-preview')
-    
+    console.log('🔬 NEW BATCH-AWARE SURGICAL ANALYSIS STARTED')
     const startTime = Date.now()
 
-    // Initialize Gemini 3 Pro for vision analysis
+    // Initialize Gemini 3 Pro Preview for advanced vision analysis
     const model = genAI.getGenerativeModel({
       model: 'gemini-3-pro-preview',
       generationConfig: {
-        temperature: 0.1, // Low temperature for precision
-        topK: 1,
+        temperature: 0.2,
+        topK: 40,
         topP: 0.95,
         maxOutputTokens: 8192,
+        responseMimeType: "application/json"
       },
+      systemInstruction: VISION_SYSTEM_PROMPT
     })
 
-    // SURGICAL PRECISION PROMPT - Complete Rewrite
-    const surgicalPrompt = `You are an EXPERT PLANT PATHOLOGIST with SURGICAL PRECISION capabilities.
-
-🎯 **CRITICAL MISSION**: Identify the plant FIRST, then diagnose with pixel-level precision.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 **STAGE 1: PLANT IDENTIFICATION (MANDATORY - NO ASSUMPTIONS)**
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-⚠️ **NEVER ASSUME THE PLANT TYPE** - Analyze visual characteristics FIRST!
-
-**Step 1: Examine Leaf Morphology**
-Look at the image and answer these questions:
-
-1. **Leaf Structure:**
-   - Is it a SIMPLE leaf (one blade) or COMPOUND leaf (multiple leaflets)?
-   - If compound, how many leaflets? (e.g., 3, 5, 7, 9+)
-
-2. **Leaf Shape:**
-   - Oval, lanceolate, heart-shaped, lobed, palmate?
-   - Length-to-width ratio?
-
-3. **Leaf Margin:**
-   - Smooth (entire)?
-   - Serrated (toothed)?
-   - Lobed?
-   - Wavy?
-
-4. **Leaf Texture:**
-   - Glossy/shiny?
-   - Matte?
-   - Waxy coating?
-   - Hairy/fuzzy?
-   - Leathery?
-
-5. **Vein Pattern:**
-   - Pinnate (feather-like, central midrib)?
-   - Palmate (radiating from base)?
-   - Parallel?
-
-6. **Leaf Color:**
-   - Dark green?
-   - Light green?
-   - Yellow-green?
-   - Blue-green?
-   - Silvery?
-
-7. **Special Features:**
-   - Petiole (leaf stem) characteristics?
-   - Stipules present?
-   - Aromatic when crushed?
-
-**Step 2: Match to Plant Database**
-
-Based on morphology, identify from these common plants:
-
-**CITRUS (Orange, Lemon, Lime):**
-- Simple, oval leaves
-- Glossy, leathery texture
-- Winged petiole (distinctive!)
-- Aromatic when crushed
-- Dark green color
-
-**OLIVE:**
-- Simple, narrow, lanceolate leaves
-- Silvery-green color (distinctive!)
-- Leathery texture
-- Smooth margins
-
-**TOMATO:**
-- Compound leaves (5-9 leaflets)
-- Serrated margins
-- Strong characteristic odor
-- Hairy stems and leaves
-- Matte texture
-
-**POTATO:**
-- Compound leaves (similar to tomato)
-- 7-9 leaflets
-- Less hairy than tomato
-
-**PEPPER (Bell/Chili):**
-- Simple, oval leaves
-- Smooth margins
-- Glossy texture
-- No strong odor
-
-**GRAPE:**
-- Simple, lobed leaves (3-5 lobes)
-- Palmate venation
-- Serrated margins
-- Heart-shaped base
-
-**APPLE/PEAR:**
-- Simple, oval leaves
-- Serrated margins
-- Smooth texture
-
-**BEAN/PEA:**
-- Compound leaves (3 leaflets typical)
-- Smooth margins
-
-**Step 3: Confidence Assessment**
-- If morphology clearly matches a plant: Confidence >85%
-- If matches plant family but not specific: Confidence 70-85%
-- If uncertain: Confidence <70%, use "Unknown Plant"
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 **STAGE 2: SURGICAL LESION DETECTION**
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-**ONLY proceed if plant is identified (confidence >70%)**
-
-**Step 1: Scan for Lesions**
-Examine the image pixel-by-pixel for:
-- Spots, lesions, discoloration
-- Necrotic tissue (dead/brown areas)
-- Chlorosis (yellowing)
-- Physical damage (holes, tears)
-- Unusual patterns
-
-**Step 2: Filter Out False Positives**
-DO NOT mark as lesions:
-❌ Shadows or lighting variations
-❌ Natural leaf veins
-❌ Dirt or water droplets
-❌ Background objects
-❌ Camera artifacts
-❌ Natural color variations in healthy tissue
-❌ Leaf edges or natural aging
-
-**Step 3: Measure Precise Coordinates**
-For EACH real lesion found:
-1. Identify the EXACT center point of the lesion
-2. Measure the radius (how far it extends from center)
-3. Calculate as fraction of image dimensions:
-   - center_x = (pixel_x / image_width) → value 0.0 to 1.0
-   - center_y = (pixel_y / image_height) → value 0.0 to 1.0
-   - radius = (lesion_radius / min(image_width, image_height)) → value 0.01 to 0.08
-
-**Step 4: Match Disease to Plant**
-Based on identified plant, match appropriate diseases:
-
-**For CITRUS:**
-- Citrus Canker (raised lesions with yellow halos)
-- Greasy Spot (dark spots, greasy appearance)
-- Melanose (brown spots, rough texture)
-- Citrus Scab (raised, warty lesions)
-
-**For OLIVE:**
-- Peacock Spot (circular spots with yellow halos)
-- Anthracnose (dark sunken lesions)
-
-**For TOMATO:**
-- Early Blight (concentric rings, target-like)
-- Late Blight (water-soaked lesions)
-- Septoria Leaf Spot (small circular spots)
-- Bacterial Spot (dark spots with yellow halos)
-
-**For UNKNOWN plants:**
-- Use generic descriptions: "Fungal Leaf Spot", "Bacterial Infection", "Nutrient Deficiency"
-
-**Step 5: Confidence & Severity**
-- Confidence: >90% for clear lesions, 85-90% for uncertain
-- Severity:
-  * mild: <5% of leaf area affected, early stage
-  * moderate: 5-20% of leaf area, spreading
-  * severe: >20% of leaf area, extensive damage
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📤 **REQUIRED JSON OUTPUT**
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-{
-  "plantIdentification": {
-    "species": "string (e.g., 'Citrus (Orange/Lemon)', 'Olive Tree', 'Tomato', 'Unknown Plant')",
-    "confidence": number (0-100),
-    "morphologyNotes": "string (brief description of key features observed)",
-    "leafType": "simple" | "compound",
-    "distinctiveFeatures": ["string array of key identifying features"]
-  },
-  "cropType": "string (same as plantIdentification.species)",
-  "diseases": [
-    {
-      "name": "string (disease name appropriate for identified plant)",
-      "confidence": number (85-100),
-      "description": "string (detailed pathology)",
-      "evidenceFromCV": "string (what visual evidence supports this diagnosis)"
-    }
-  ],
-  "highlightedAreas": [
-    {
-      "id": number,
-      "label": "string (e.g., 'Lesion #1 - Upper Left')",
-      "center_x": number (0.0-1.0, precise center X coordinate),
-      "center_y": number (0.0-1.0, precise center Y coordinate),
-      "radius": number (0.01-0.08, size of affected area),
-      "severity": "mild" | "moderate" | "severe",
-      "visualCues": ["string array (e.g., 'Dark brown necrosis', 'Yellow halo', 'Concentric rings')"],
-      "confidence": number (85-100)
-    }
-  ],
-  "symptoms": ["string array"],
-  "causes": ["string array"],
-  "organicTreatments": ["string array"],
-  "chemicalTreatments": ["string array"],
-  "preventionTips": ["string array"],
-  "severity": "low" | "medium" | "high",
-  "sustainabilityScore": number (0-100),
-  "agenticReasoning": "string (brief explanation of identification and diagnosis process)",
-  "productRecommendations": [
-    {
-      "name": "string (specific product name, e.g., 'Copper Fungicide', 'Neem Oil', 'Potassium Bicarbonate')",
-      "category": "fungicide" | "pesticide" | "fertilizer" | "soil_amendment" | "organic_treatment" | "equipment" | "other",
-      "type": "organic" | "chemical" | "biological",
-      "purpose": "string (what this product treats/prevents)",
-      "dosage": "string (recommended application rate, e.g., '2-3 tablespoons per gallon')",
-      "applicationMethod": "string (how to apply, e.g., 'Foliar spray every 7-10 days')",
-      "estimatedCost": "string (approximate price range, e.g., '$15-25 per liter')",
-      "priority": "critical" | "high" | "medium" | "low",
-      "alternatives": ["string array of alternative products"],
-      "safetyNotes": "string (important safety information)",
-      "whereToFind": "string (where to purchase, e.g., 'Agricultural supply stores, garden centers')"
-    }
-  ]
-}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 **STAGE 3: PRODUCT RECOMMENDATIONS**
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-**CRITICAL**: Provide 3-6 specific product recommendations to treat the diagnosed condition.
-
-**For each product, specify:**
-1. **Exact product name** (e.g., "Copper Fungicide", "Neem Oil 70%", "Bacillus subtilis")
-2. **Category**: fungicide, pesticide, fertilizer, soil_amendment, organic_treatment, equipment, other
-3. **Type**: organic, chemical, or biological
-4. **Purpose**: What it treats/prevents specifically
-5. **Dosage**: Exact application rate (e.g., "2 tablespoons per gallon of water")
-6. **Application method**: How and when to apply (e.g., "Foliar spray every 7 days at dawn")
-7. **Estimated cost**: Realistic price range (e.g., "$15-25 per liter")
-8. **Priority**: critical (must-have), high (strongly recommended), medium (helpful), low (optional)
-9. **Alternatives**: 1-2 alternative products with similar effects
-10. **Safety notes**: Important warnings (e.g., "Wear gloves", "Avoid during flowering")
-11. **Where to find**: Where farmers can buy it (e.g., "Agricultural supply stores, online retailers")
-
-**Priority Guidelines:**
-- **Critical**: Essential for immediate treatment (e.g., fungicide for severe infection)
-- **High**: Strongly recommended for effective treatment
-- **Medium**: Supportive products that enhance recovery
-- **Low**: Optional preventive measures
-
-**Example for Citrus Canker:**
-- Critical: Copper-based bactericide
-- High: Pruning shears (sterilized) to remove infected tissue
-- Medium: Zinc sulfate foliar spray for plant immunity
-- Low: Organic compost for soil health
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️ **CRITICAL RULES**
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-1. **NEVER assume tomato** - Identify plant from visual features
-2. **Only mark REAL lesions** - High threshold (>90% confidence)
-3. **Precise coordinates** - Measure exact center and radius
-4. **Match diseases to plant** - Don't diagnose tomato diseases for citrus!
-5. **Small precise dots** - radius 0.01-0.08, not large boxes
-6. **Quality over quantity** - Better 2-3 precise lesions than 10 uncertain ones
-7. **Maximum 6 lesions** - Focus on most significant
-8. **Provide 3-6 product recommendations** - Specific, actionable, with all details
-
-Analyze now with SURGICAL PRECISION! 🔬`
-
-    const imageParts = [{
+    const imageParts = (images && images.length > 0 ? images : [image]).map((img: string) => ({
       inlineData: {
-        data: image.split(',')[1] || image,
+        data: img.includes('base64') ? img.split(',')[1] : img,
         mimeType: 'image/jpeg'
       }
-    }]
+    }))
 
-    console.log('⏱️  Stage 1: Plant identification...')
-    const result = await model.generateContent([surgicalPrompt, ...imageParts])
-    
-    console.log('⏱️  Stage 2: Lesion detection...')
+    const result = await model.generateContent([
+      `Analyze this leaf/plant image (Leaf Scan Mode). Location: ${location?.city || 'Unknown'}. Return JSON values.`,
+      ...imageParts
+    ])
+
     const response = await result.response
     const text = response.text()
-    const analysisTime = Date.now() - startTime
-    console.log(`✅ Analysis complete (${analysisTime}ms)`)
+    console.log(`✅ Analysis complete (${Date.now() - startTime}ms)`)
 
-    // Parse JSON response
-    let diagnosisData
+    // Parse JSON with robust error handling
+    let rawData
     try {
-      const jsonMatch = text.match(/\{[\s\S]*\}/)
-      const jsonString = jsonMatch ? jsonMatch[0] : text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-      diagnosisData = JSON.parse(jsonString)
-
-      // Normalize highlighted areas
-      if (diagnosisData.highlightedAreas && Array.isArray(diagnosisData.highlightedAreas)) {
-        diagnosisData.highlightedAreas = diagnosisData.highlightedAreas.map((area: any) => {
-          // Ensure we have center and radius
-          if (typeof area.center_x === 'number' && typeof area.center_y === 'number') {
-            area.center = { x: area.center_x, y: area.center_y }
-            area.radius = area.radius || 0.03 // Default 3% if not specified
-          }
-          return area
-        })
-      }
-
-      // Add plant identity for UI display
-      if (diagnosisData.plantIdentification) {
-        diagnosisData.plantIdentity = {
-          name: diagnosisData.plantIdentification.species,
-          confidence: diagnosisData.plantIdentification.confidence,
-          morphologyNotes: diagnosisData.plantIdentification.morphologyNotes
+      rawData = JSON.parse(text)
+    } catch (e) {
+      console.warn('Initial JSON parse failed, trying fallback...', e)
+      // Fallback: Extract JSON from markdown code blocks
+      const jsonMatch = text.match(/```json\s*([\s\S]*?)```/) || text.match(/```\s*([\s\S]*?)```/)
+      if (jsonMatch) {
+        try {
+          rawData = JSON.parse(jsonMatch[1])
+        } catch (e2) {
+          console.error('Fallback parse failed:', e2)
         }
       }
-
-      console.log('🔬 Plant identified:', diagnosisData.plantIdentification?.species)
-      console.log('🎯 Lesions detected:', diagnosisData.highlightedAreas?.length || 0)
-
-    } catch (parseError) {
-      console.error('JSON parsing error:', parseError)
-      console.log('Raw response:', text)
       
-      // Fallback response
-      diagnosisData = {
-        plantIdentification: {
-          species: 'Unknown Plant',
-          confidence: 0,
-          morphologyNotes: 'Unable to analyze image',
-          leafType: 'unknown',
-          distinctiveFeatures: []
-        },
-        cropType: 'Unknown Plant',
-        diseases: [],
-        highlightedAreas: [],
-        symptoms: ['Analysis failed'],
-        causes: ['Unable to process image'],
-        organicTreatments: [],
-        chemicalTreatments: [],
-        preventionTips: [],
-        severity: 'low',
-        sustainabilityScore: 0,
-        agenticReasoning: 'Failed to parse AI response',
-        plantIdentity: { name: 'Unknown Plant', confidence: 0 }
+      // Final fallback: Try to extract first JSON object
+      if (!rawData) {
+        const match = text.match(/\{[\s\S]*\}/)
+        if (match) {
+          try {
+            rawData = JSON.parse(match[0])
+          } catch (e3) {
+            console.error('Final fallback parse failed:', e3)
+          }
+        }
+      }
+    }
+
+    if (!rawData) {
+      console.error('Raw AI response:', text.substring(0, 500))
+      throw new Error("Failed to parse AI response as JSON")
+    }
+
+    // Map to DiagnosisResult (Backward Compatibility + New Fields)
+    const diagnosis: any = {
+      // New Fields
+      overall_scene: rawData.overall_scene,
+      batch_summary: rawData.batch_summary,
+      batch_statistics: rawData.batch_statistics,
+      individual_items: rawData.individual_items,
+
+      // Mapped Fields for UI - CRITICAL: highlightedAreas for image overlays
+      highlightedAreas: rawData.individual_items?.map((item: any) => {
+        const gradeLower = (item.grade_or_severity || '').toLowerCase()
+        let severity: 'mild' | 'moderate' | 'severe' = 'moderate'
+        if (gradeLower.includes('severe') || gradeLower.includes('high') || gradeLower.includes('critical')) {
+          severity = 'severe'
+        } else if (gradeLower.includes('low') || gradeLower.includes('minor') || gradeLower.includes('good')) {
+          severity = 'mild'
+        }
+        
+        return {
+          label: item.label,
+          description: item.description,
+          severity,
+          bbox: item.bbox,
+          center: item.center_point || (item.bbox ? {
+            x: (item.bbox.xmin + item.bbox.xmax) / 2,
+            y: (item.bbox.ymin + item.bbox.ymax) / 2
+          } : undefined),
+          radius: item.radius || 0.04, // Small radius for individual disease spots, not whole leaf
+          visualCues: item.defects || []
+        }
+      }) || [],
+
+      // Extract primary disease from batch analysis
+      diseases: (rawData.batch_statistics?.predominant_issues || rawData.individual_items?.flatMap((i: any) => 
+        i.defects?.map((d: string) => d.split(':')[0]?.trim() || d.split('-')[0]?.trim() || 'Unknown Issue')
+      ).filter((v: string, i: number, a: string[]) => a.indexOf(v) === i).slice(0, 3) || ['General Plant Health Issue']).map((issue: string) => ({
+        name: issue,
+        confidence: rawData.confidence?.overall === 'High' ? 92 : 85,
+        description: rawData.batch_summary || rawData.conclusions_and_recommendations || 'Detailed analysis completed.',
+        evidenceFromCV: `Detected in ${rawData.batch_statistics?.total_items || 'multiple'} specimens with visible symptoms`
+      })),
+
+      // Symptoms from all defects
+      symptoms: rawData.individual_items?.flatMap((i: any) => i.defects || []) || [],
+      
+      // Determine overall severity
+      severity: (() => {
+        const conf = rawData.confidence?.overall
+        const issues = rawData.batch_statistics?.predominant_issues?.length || 0
+        if (conf === 'Low' || issues === 0) return 'low'
+        if (issues >= 3) return 'high'
+        return 'medium'
+      })(),
+
+      cropType: rawData.batch_summary?.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/)?.[0] || 'Plant Batch',
+      additionalInfo: rawData.conclusions_and_recommendations || '',
+      
+      // Extract treatments from recommendations
+      organicTreatments: extractTreatments(rawData.conclusions_and_recommendations, 'organic'),
+      chemicalTreatments: extractTreatments(rawData.conclusions_and_recommendations, 'chemical'),
+      preventionTips: extractPreventionTips(rawData.conclusions_and_recommendations),
+      causes: rawData.batch_statistics?.predominant_issues || [],
+      
+      // Intervention plan from recommendations
+      interventionPlan: parseInterventionPlan(rawData.conclusions_and_recommendations),
+      
+      batch_grade_or_health_score: rawData.batch_grade_or_health_score,
+      confidence: rawData.confidence,
+      agenticReasoning: rawData.confidence?.reasons || 'Analysis based on visible evidence and established pathology patterns.',
+      sustainabilityScore: 75 // Default
+    }
+
+    // Helper functions for parsing
+    function extractTreatments(text: string = '', type: 'organic' | 'chemical'): string[] {
+      if (!text) return []
+      const lines = text.split('\n').filter(l => l.trim())
+      const keywords = type === 'organic' ? 
+        ['organic', 'neem', 'compost', 'natural', 'biological', 'prune', 'remove', 'copper fungicide'] :
+        ['fungicide', 'pesticide', 'chemical', 'spray']
+      
+      return lines
+        .filter(l => keywords.some(k => l.toLowerCase().includes(k)))
+        .slice(0, 3)
+        .map(l => l.replace(/^[•\-*]\s*/, '').trim())
+        .filter(l => l.length > 10)
+    }
+
+    function extractPreventionTips(text: string = ''): string[] {
+      if (!text) return []
+      const lines = text.split('\n').filter(l => l.trim())
+      const keywords = ['prevent', 'avoid', 'maintain', 'monitor', 'ensure', 'improve', 'reduce']
+      
+      return lines
+        .filter(l => keywords.some(k => l.toLowerCase().includes(k)))
+        .slice(0, 3)
+        .map(l => l.replace(/^[•\-*]\s*/, '').trim())
+        .filter(l => l.length > 10)
+    }
+
+    function parseInterventionPlan(text: string = '') {
+      if (!text) return undefined
+      
+      const lines = text.split('\n').filter(l => l.trim())
+      
+      return {
+        immediate: lines.filter(l => 
+          l.toLowerCase().includes('immediate') || 
+          l.toLowerCase().includes('now') ||
+          l.toLowerCase().includes('remove') ||
+          l.toLowerCase().includes('isolate')
+        ).slice(0, 2).map(l => l.replace(/^[•\-*]\s*/, '').trim()).filter(l => l.length > 10),
+        
+        shortTerm: lines.filter(l => 
+          l.toLowerCase().includes('apply') ||
+          l.toLowerCase().includes('spray') ||
+          l.toLowerCase().includes('treat') ||
+          l.toLowerCase().includes('week')
+        ).slice(0, 2).map(l => l.replace(/^[•\-*]\s*/, '').trim()).filter(l => l.length > 10),
+        
+        longTerm: lines.filter(l => 
+          l.toLowerCase().includes('prevent') ||
+          l.toLowerCase().includes('maintain') ||
+          l.toLowerCase().includes('monitor') ||
+          l.toLowerCase().includes('future')
+        ).slice(0, 2).map(l => l.replace(/^[•\-*]\s*/, '').trim()).filter(l => l.length > 10),
+        
+        weatherOptimized: 'Apply treatments during cool, dry conditions for best efficacy'
       }
     }
 
     return NextResponse.json({
       success: true,
-      diagnosis: diagnosisData,
-      processingTime: Date.now() - startTime,
-      model: 'gemini-3-pro-preview',
-      surgicalPrecision: true
+      diagnosis,
+      processingTime: Date.now() - startTime
     })
 
   } catch (error: any) {
-    console.error('❌ Surgical analysis error:', error)
-    console.error('Error details:', {
-      message: error.message,
-      status: error.status,
-      statusText: error.statusText,
-      errorDetails: error.errorDetails
-    })
-    
-    // Return demo mode if API fails
-    return NextResponse.json({
-      success: true,
-      diagnosis: {
-        plantIdentification: {
-          species: 'Demo Mode - API Unavailable',
-          confidence: 0,
-          morphologyNotes: 'API rate limited or unavailable',
-          leafType: 'unknown',
-          distinctiveFeatures: []
-        },
-        cropType: 'Demo Mode',
-        diseases: [{
-          name: 'Sample Disease',
-          confidence: 85,
-          description: 'Demo mode active - get new API key for real analysis',
-          evidenceFromCV: 'API unavailable'
-        }],
-        highlightedAreas: [],
-        symptoms: ['API unavailable'],
-        causes: ['Rate limit or quota exceeded'],
-        organicTreatments: ['Get new API key from https://makersuite.google.com/app/apikey'],
-        chemicalTreatments: [],
-        preventionTips: [],
-        severity: 'low',
-        sustainabilityScore: 0,
-        agenticReasoning: 'Demo mode - API unavailable',
-        plantIdentity: { name: 'Demo Mode', confidence: 0 },
-        demoMode: true
-      }
-    })
+    console.error('❌ Analysis error:', error)
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
   }
 }

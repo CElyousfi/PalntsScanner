@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ActionRescueResult, DiagnosisResult } from '@/types'
 import { useLanguage } from '@/context/LanguageContext'
 import { useAutonomy } from '@/hooks/useAutonomy'
@@ -44,9 +44,13 @@ import {
   ExternalLink,
   LeafyGreen,
   MapPin,
-  Maximize2
+  Maximize2,
+  Grid3x3
 } from 'lucide-react'
 import ImageLightbox from '@/components/ui/ImageLightbox'
+import { useRouter } from 'next/navigation'
+import { Search, Refrigerator, ChefHat, BookOpen } from 'lucide-react'
+import IndividualItemCard from './IndividualItemCard'
 import dynamic from 'next/dynamic'
 
 // Dynamically import map to avoid SSR issues with Leaflet
@@ -74,8 +78,45 @@ interface DiagnosisReportProps {
 
 export default function DiagnosisReport({ result, actionResult, image, onReset, onOpenTreatmentPlanner, onOpenChat, onSymptomClick, onStartMonitoring, onVisualGenerated, onExploreAction }: DiagnosisReportProps) {
   const { t, language } = useLanguage()
+
+  const router = useRouter()
+
+  const handleExploreAction = (query: string) => {
+    const encodedQuery = encodeURIComponent(query)
+    router.push(`/dashboard/explore?q=${encodedQuery}`)
+  }
+
   const [hoveredDot, setHoveredDot] = useState<number | null>(null)
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
+  const [highlightedItem, setHighlightedItem] = useState<number | null>(null)
+
+  // NEW: Precise Image Dimensions for Pixel-Perfect Overlay
+  const [imageMetrics, setImageMetrics] = useState({ width: 0, height: 0 })
+  const imageRef = useRef<HTMLImageElement>(null)
+
+  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget
+    setImageMetrics({
+      width: img.offsetWidth,
+      height: img.offsetHeight
+    })
+  }
+
+  // Effect to update metrics on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (imageRef.current) {
+        const img = imageRef.current
+        setImageMetrics(prev => ({
+          ...prev,
+          width: img.offsetWidth,
+          height: img.offsetHeight
+        }))
+      }
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   const handleDownloadPDF = async () => {
     const element = document.getElementById('diagnosis-report')
@@ -204,6 +245,95 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
         </div>
       </div>
 
+      {/* NEW: BATCH / SCENE CONTEXT CARD (Agentic Upgrade) */}
+      {(result.overall_scene || result.batch_summary) && (
+        <div className="mb-8 bg-apeel-green/5 border border-apeel-green/10 rounded-[2rem] p-6 lg:p-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-apeel-green/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
+
+          <div className="flex flex-col gap-6 relative z-10">
+            {/* Header */}
+            <div className="flex items-center gap-4 border-b border-apeel-green/10 pb-4">
+              <div className="p-3 bg-white rounded-full text-apeel-green shadow-sm">
+                <Maximize2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-xl font-serif font-bold text-apeel-green leading-none mb-1">Holistic Scene Analysis</h3>
+                <p className="text-sm text-apeel-green/60 font-medium">{result.batch_grade_or_health_score || 'Batch Assessment In Progress'}</p>
+              </div>
+            </div>
+
+            {/* Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-widest text-apeel-green/70 mb-2">Scene Description</h4>
+                <p className="text-gray-700 leading-relaxed text-sm font-medium">
+                  {result.overall_scene}
+                </p>
+              </div>
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-widest text-apeel-green/70 mb-2">Batch Summary</h4>
+                <p className="text-gray-700 leading-relaxed text-sm font-medium">
+                  {result.batch_summary}
+                </p>
+              </div>
+            </div>
+
+            {/* Batch Stats */}
+            {result.batch_statistics && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
+                <div className="bg-white p-4 rounded-xl border border-apeel-green/10">
+                  <div className="text-2xl font-bold text-apeel-green">{result.batch_statistics.total_items}</div>
+                  <div className="text-[10px] font-bold uppercase text-gray-400">Total Items</div>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-apeel-green/10">
+                  <div className="text-lg font-bold text-gray-800 truncate" title={result.batch_statistics.uniformity}>{result.batch_statistics.uniformity}</div>
+                  <div className="text-[10px] font-bold uppercase text-gray-400">Uniformity</div>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-apeel-green/10 col-span-2">
+                  <div className="flex flex-wrap gap-2">
+                    {result.batch_statistics.predominant_issues?.map((issue: string, i: number) => (
+                      <span key={i} className="px-2 py-1 bg-red-50 text-red-600 text-xs font-bold rounded-lg border border-red-100">{issue}</span>
+                    ))}
+                  </div>
+                  <div className="text-[10px] font-bold uppercase text-gray-400 mt-2">Predominant Issues</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Individual Items Breakdown */}
+      {result.individual_items && result.individual_items.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-2xl font-serif font-bold text-apeel-green flex items-center gap-3">
+              <Grid3x3 className="w-6 h-6" />
+              Individual Item Analysis
+              <span className="text-sm font-normal text-gray-400">({result.individual_items.length} item{result.individual_items.length !== 1 ? 's' : ''} detected)</span>
+            </h3>
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <Target className="w-4 h-4" />
+              <span>Click item to highlight on image</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {result.individual_items.map((item, idx) => (
+              <IndividualItemCard
+                key={idx}
+                item={item}
+                index={idx}
+                onHighlight={() => {
+                  setHighlightedItem(idx)
+                  setTimeout(() => setHighlightedItem(null), 3000)
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
         {/* LEFT COLUMN: Visuals (Compact) */}
@@ -217,6 +347,69 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
               imageSrc={image}
               altText="Analysis Overlay"
             >
+              {/* Individual Items Overlay - Lightbox */}
+              {result.individual_items && result.individual_items.length > 0 && (
+                <svg className="absolute inset-0 w-full h-full z-20" style={{ pointerEvents: 'none' }}>
+                  {result.individual_items.map((item, idx) => {
+                    if (!item.center_point && !item.bbox) return null
+
+                    const center = item.center_point || (item.bbox ? {
+                      x: (item.bbox.xmin + item.bbox.xmax) / 2,
+                      y: (item.bbox.ymin + item.bbox.ymax) / 2
+                    } : null)
+
+                    if (!center) return null
+
+                    const radius = item.radius || 0.05
+                    const itemNumber = item.label.replace('#', '').replace(/[^0-9]/g, '') || (idx + 1).toString()
+
+                    const gradeLower = item.grade_or_severity.toLowerCase()
+                    let color = '#22c55e'
+                    if (gradeLower.includes('severe') || gradeLower.includes('poor')) {
+                      color = '#dc2626'
+                    } else if (gradeLower.includes('moderate') || gradeLower.includes('fair')) {
+                      color = '#f97316'
+                    }
+
+                    return (
+                      <g key={idx}>
+                        <circle
+                          cx={`${center.x * 100}%`}
+                          cy={`${center.y * 100}%`}
+                          r={`${radius * 100}%`}
+                          fill={color}
+                          fillOpacity="0.3"
+                          stroke={color}
+                          strokeWidth="3"
+                        />
+                        <circle
+                          cx={`${center.x * 100}%`}
+                          cy={`${center.y * 100}%`}
+                          r={`${radius * 120}%`}
+                          fill="none"
+                          stroke={color}
+                          strokeWidth="2"
+                          strokeOpacity="0.5"
+                          className="animate-pulse"
+                        />
+                        <g transform={`translate(${center.x * 100}%, ${center.y * 100}%)`}>
+                          <circle r="18" fill="white" stroke={color} strokeWidth="3" />
+                          <text
+                            textAnchor="middle"
+                            dy="6"
+                            className="text-base font-bold"
+                            fill={color}
+                          >
+                            {itemNumber}
+                          </text>
+                        </g>
+                      </g>
+                    )
+                  })}
+                </svg>
+              )}
+
+              {/* Legacy Highlighted Areas - Lightbox */}
               <svg className="absolute inset-0 w-full h-full z-10" style={{ pointerEvents: 'none' }}>
                 {result.highlightedAreas?.map((area, i) => {
                   // Logic duplication for Lightbox - Ensures perfect match
@@ -247,8 +440,35 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
                     <g key={i}>
                       {area.center ? (
                         <>
-                          <circle cx={`${area.center.x * 100}%`} cy={`${area.center.y * 100}%`} r={`${Math.max((area.radius || 0.03) * 100, 3)}%`} fill={style.fill} fillOpacity="0.35" />
-                          <circle cx={`${area.center.x * 100}%`} cy={`${area.center.y * 100}%`} r={`${Math.max((area.radius || 0.03) * 100 * 1.2, 4)}%`} fill="none" stroke={style.stroke} strokeWidth="2" strokeOpacity="0.6" className="animate-pulse" />
+                          {/* Lightbox - individual spot highlight */}
+                          <circle
+                            cx={`${area.center.x * 100}%`}
+                            cy={`${area.center.y * 100}%`}
+                            r={`${Math.max((area.radius || 0.05) * 100, 3)}%`}
+                            fill={style.fill}
+                            fillOpacity="0.2"
+                          />
+                          {/* Thick border - Lightbox */}
+                          <circle
+                            cx={`${area.center.x * 100}%`}
+                            cy={`${area.center.y * 100}%`}
+                            r={`${Math.max((area.radius || 0.05) * 100, 3)}%`}
+                            fill="none"
+                            stroke={style.stroke}
+                            strokeWidth="3"
+                            strokeOpacity="0.85"
+                          />
+                          {/* Outer glow - Lightbox */}
+                          <circle
+                            cx={`${area.center.x * 100}%`}
+                            cy={`${area.center.y * 100}%`}
+                            r={`${Math.max((area.radius || 0.05) * 100 * 1.2, 4)}%`}
+                            fill="none"
+                            stroke={style.stroke}
+                            strokeWidth="2"
+                            strokeOpacity="0.4"
+                            className="animate-pulse"
+                          />
                           <text x={`${(area.center.x * 100) + 2}%`} y={`${(area.center.y * 100) - 2}%`} className="text-[11px] font-bold fill-white stroke-black stroke-[0.5] drop-shadow-md">#{i + 1}</text>
                         </>
                       ) : area.bbox ? (
@@ -274,16 +494,105 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
             </div>
 
             <div
-              className="relative rounded-[1.5rem] overflow-hidden bg-apeel-light aspect-[4/3] cursor-pointer"
+              className="relative rounded-[1.5rem] overflow-hidden bg-apeel-light cursor-pointer group"
               onClick={() => setIsLightboxOpen(true)}
+              style={{ minHeight: '300px' }}
             >
+              {/* Image Container that shrinks to fit content if needed, or we calculate rect */}
               <img
+                ref={imageRef}
                 src={image}
                 alt="Analyzed specimen"
-                className="w-full h-full object-contain mix-blend-multiply"
+                className="max-w-full max-h-[600px] w-auto h-auto mx-auto object-contain"
+                onLoad={handleImageLoad}
               />
 
-              {/* Highlighted Areas Overlay (Main View - Interactive) */}
+              {/* Individual Items Overlay (Batch-Aware) - PIXEL PERFECT */}
+              {result.individual_items && result.individual_items.length > 0 && imageMetrics.width > 0 && (
+                <svg
+                  className="absolute inset-0 z-20 pointer-events-none"
+                  style={{ width: imageMetrics.width, height: imageMetrics.height, left: '50%', transform: 'translateX(-50%)' }}
+                >
+                  {result.individual_items.map((item, idx) => {
+                    if (!item.center_point && !item.bbox) return null
+
+                    const isHighlighted = highlightedItem === idx
+                    const center = item.center_point || (item.bbox ? {
+                      x: (item.bbox.xmin + item.bbox.xmax) / 2,
+                      y: (item.bbox.ymin + item.bbox.ymax) / 2
+                    } : null)
+
+                    if (!center) return null
+
+                    // Default to smaller radius for precision
+                    // Radius is relative to WIDTH (as per standard CV practice in this app)
+                    const relRadius = (item.radius && item.radius < 0.2) ? item.radius : 0.03
+
+                    // Convert to PIXELS
+                    const cx = center.x * imageMetrics.width
+                    const cy = center.y * imageMetrics.height
+                    const r = relRadius * imageMetrics.width // Circular radius based on width
+
+                    const itemNumber = item.label.replace('#', '').replace(/[^0-9]/g, '') || (idx + 1).toString()
+
+                    // Color based on severity
+                    const gradeLower = item.grade_or_severity.toLowerCase()
+                    let color = '#22c55e' // green
+                    if (gradeLower.includes('severe') || gradeLower.includes('high') || gradeLower.includes('critical')) {
+                      color = '#dc2626' // red
+                    } else if (gradeLower.includes('moderate') || gradeLower.includes('medium')) {
+                      color = '#f97316' // orange
+                    }
+
+                    return (
+                      <g key={idx} className={isHighlighted ? 'animate-pulse' : ''}>
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={r}
+                          fill={color}
+                          fillOpacity={isHighlighted ? '0.4' : '0.2'}
+                          stroke={color}
+                          strokeWidth={isHighlighted ? '3' : '2'}
+                          className="transition-all duration-300"
+                        />
+                        {/* Outer Ring */}
+                        {isHighlighted && (
+                          <circle
+                            cx={cx}
+                            cy={cy}
+                            r={r * 1.3}
+                            fill="none"
+                            stroke={color}
+                            strokeWidth="1"
+                            strokeOpacity="0.5"
+                          />
+                        )}
+                        {/* Number Badge */}
+                        <g transform={`translate(${cx}, ${cy})`}>
+                          <circle
+                            r={isHighlighted ? 12 : 9}
+                            fill="white"
+                            stroke={color}
+                            strokeWidth="2"
+                            className="transition-all duration-300 shadow-sm"
+                          />
+                          <text
+                            textAnchor="middle"
+                            dy={isHighlighted ? 4 : 3}
+                            className={`font-bold fill-current ${isHighlighted ? 'text-[10px]' : 'text-[8px]'}`}
+                            style={{ fill: color }}
+                          >
+                            {itemNumber}
+                          </text>
+                        </g>
+                      </g>
+                    )
+                  })}
+                </svg>
+              )}
+
+              {/* Highlighted Areas Overlay (Main View - Interactive - Legacy Support) */}
               <svg className="absolute inset-0 w-full h-full z-10" style={{ pointerEvents: 'none' }}>
                 {result.highlightedAreas?.map((area, i) => {
                   let left = 0, top = 0, width = 0, height = 0;
@@ -314,8 +623,36 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
                     <g key={i}>
                       {area.center ? (
                         <>
-                          <circle cx={`${area.center.x * 100}%`} cy={`${area.center.y * 100}%`} r={`${Math.max((area.radius || 0.03) * 100, 3)}%`} fill={style.fill} fillOpacity="0.35" className="transition-opacity duration-300" />
-                          <circle cx={`${area.center.x * 100}%`} cy={`${area.center.y * 100}%`} r={`${Math.max((area.radius || 0.03) * 100 * 1.2, 4)}%`} fill="none" stroke={style.stroke} strokeWidth="2" strokeOpacity="0.6" className="animate-pulse" />
+                          {/* Highlight for individual disease spot - sized to defect */}
+                          <circle
+                            cx={`${area.center.x * 100}%`}
+                            cy={`${area.center.y * 100}%`}
+                            r={`${Math.max((area.radius || 0.05) * 100, 3)}%`}
+                            fill={style.fill}
+                            fillOpacity="0.2"
+                            className="transition-opacity duration-300"
+                          />
+                          {/* Thick border ring for visibility */}
+                          <circle
+                            cx={`${area.center.x * 100}%`}
+                            cy={`${area.center.y * 100}%`}
+                            r={`${Math.max((area.radius || 0.05) * 100, 3)}%`}
+                            fill="none"
+                            stroke={style.stroke}
+                            strokeWidth="3"
+                            strokeOpacity="0.85"
+                          />
+                          {/* Outer animated glow */}
+                          <circle
+                            cx={`${area.center.x * 100}%`}
+                            cy={`${area.center.y * 100}%`}
+                            r={`${Math.max((area.radius || 0.05) * 100 * 1.2, 4)}%`}
+                            fill="none"
+                            stroke={style.stroke}
+                            strokeWidth="2"
+                            strokeOpacity="0.4"
+                            className="animate-pulse"
+                          />
 
                           {/* Interactive Dot */}
                           <circle
@@ -651,6 +988,74 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
               ))}
             </ul>
           </div>
+        </div>
+      </div>
+
+      {/* ACTION BUTTONS - EXPLORE MORE */}
+      <div className="mt-10 bg-gradient-to-br from-apeel-green to-green-600 rounded-[2.5rem] p-8 lg:p-10 text-white shadow-2xl shadow-apeel-green/20">
+        <div className="flex items-center gap-3 mb-4">
+          <Search className="w-6 h-6" />
+          <h2 className="text-2xl font-serif font-bold">Learn More About Your Plant</h2>
+        </div>
+        <p className="text-white/90 mb-6">
+          Get expert advice on plant care, disease management, and growing tips for {result.cropType || 'your plant'}
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <button
+            onClick={() => handleExploreAction(`Complete care guide for ${result.cropType || 'this plant'} including watering, fertilizing, and optimal growing conditions`)}
+            className="bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/20 p-5 rounded-2xl transition-all text-left group"
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <Sprout className="w-6 h-6 text-white" />
+              <span className="font-bold text-white text-lg">Plant Care Guide</span>
+            </div>
+            <p className="text-sm text-white/80 mb-2">
+              Comprehensive growing instructions and care tips
+            </p>
+            <ExternalLink className="w-4 h-4 text-white/60 group-hover:text-white transition-colors" />
+          </button>
+
+          <button
+            onClick={() => handleExploreAction(`Everything about ${result.diseases?.[0]?.name || 'plant diseases'}: symptoms, causes, treatment, and prevention`)}
+            className="bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/20 p-5 rounded-2xl transition-all text-left group"
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <Microscope className="w-6 h-6 text-white" />
+              <span className="font-bold text-white text-lg">Disease Info</span>
+            </div>
+            <p className="text-sm text-white/80 mb-2">
+              Detailed information about {result.diseases?.[0]?.name || 'detected issues'}
+            </p>
+            <ExternalLink className="w-4 h-4 text-white/60 group-hover:text-white transition-colors" />
+          </button>
+
+          <button
+            onClick={() => handleExploreAction(`Organic and natural remedies for treating ${result.diseases?.[0]?.name || 'plant diseases'} without chemicals`)}
+            className="bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/20 p-5 rounded-2xl transition-all text-left group"
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <Leaf className="w-6 h-6 text-white" />
+              <span className="font-bold text-white text-lg">Organic Solutions</span>
+            </div>
+            <p className="text-sm text-white/80 mb-2">
+              Natural and eco-friendly treatment options
+            </p>
+            <ExternalLink className="w-4 h-4 text-white/60 group-hover:text-white transition-colors" />
+          </button>
+
+          <button
+            onClick={() => handleExploreAction(`How to prevent ${result.diseases?.[0]?.name || 'plant diseases'} and keep ${result.cropType || 'plants'} healthy`)}
+            className="bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/20 p-5 rounded-2xl transition-all text-left group"
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <Shield className="w-6 h-6 text-white" />
+              <span className="font-bold text-white text-lg">Prevention Tips</span>
+            </div>
+            <p className="text-sm text-white/80 mb-2">
+              Best practices to keep your plants disease-free
+            </p>
+            <ExternalLink className="w-4 h-4 text-white/60 group-hover:text-white transition-colors" />
+          </button>
         </div>
       </div>
 

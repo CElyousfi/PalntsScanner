@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     `
 
         // Use Gemini 1.5 Flash for speed and low cost
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+        const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' })
 
         // Convert base64 to proper format
         const base64Data = image.replace(/^data:image\/\w+;base64,/, '')

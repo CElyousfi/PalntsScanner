@@ -548,8 +548,7 @@ export default function UnifiedScanPage() {
                                         return {
                                             ...prev,
                                         }
-                                    }
-                                })
+                                    })
                                 }}
                                 onExploreAction={(actionContext) => {
                                     setChatContext({

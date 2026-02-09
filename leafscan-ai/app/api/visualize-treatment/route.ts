@@ -10,7 +10,7 @@ export async function POST(req: Request) {
         const genAI = new GoogleGenerativeAI(apiKey);
         const languageName = language === 'ar' ? 'Arabic' : language === 'fr' ? 'French' : 'English';
 
-        // 1. Try Nano Banana Pro (Image Mode) -- The USER'S Preferred Engine
+        // 1. Try Gemini 3 Pro Image Preview (Image Mode)
         try {
             const model = genAI.getGenerativeModel({
                 model: 'gemini-3-pro-image-preview',

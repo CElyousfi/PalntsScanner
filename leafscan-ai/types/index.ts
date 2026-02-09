@@ -362,6 +362,29 @@ export interface DiagnosisResult {
     confidence: number
   }
   productRecommendations?: ProductRecommendation[] // NEW: Product recommendations for treatment
+  // NEW: Batch Analysis Fields
+  overall_scene?: string
+  batch_summary?: string
+  batch_grade_or_health_score?: string
+  individual_items?: BatchItem[]
+  batch_statistics?: BatchStatistics
+}
+
+export interface BatchItem {
+  label: string
+  description: string
+  defects: string[]
+  grade_or_severity: string
+  bbox?: { ymin: number; xmin: number; ymax: number; xmax: number }
+  center_point?: { x: number; y: number }
+  radius?: number
+}
+
+export interface BatchStatistics {
+  total_items: number
+  defect_distribution: Record<string, number>
+  uniformity: string
+  predominant_issues: string[]
 }
 
 // End of types definitions

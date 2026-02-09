@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import { Scale, Ruler, Eye, TrendingUp, AlertCircle, CheckCircle2, Apple, Info, BookOpen, Play, Maximize2 } from 'lucide-react'
+import { Scale, Ruler, Eye, TrendingUp, AlertCircle, CheckCircle2, Apple, Info, BookOpen, Play, Maximize2, Clock, Refrigerator, ChefHat, Search, ExternalLink } from 'lucide-react'
 import ImageLightbox from '@/components/ui/ImageLightbox'
+import { useRouter } from 'next/navigation'
 
 interface ProduceReportProps {
   image: string
@@ -16,6 +17,12 @@ export default function ProduceReport({ image, results, onClose }: ProduceReport
   const [loadingTutorial, setLoadingTutorial] = useState(false)
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
   const imageRef = useRef<HTMLImageElement>(null)
+  const router = useRouter()
+
+  const handleExploreAction = (query: string) => {
+    const encodedQuery = encodeURIComponent(query)
+    router.push(`/dashboard/explore?q=${encodedQuery}`)
+  }
 
   useEffect(() => {
     if (imageRef.current) {
@@ -84,22 +91,15 @@ export default function ProduceReport({ image, results, onClose }: ProduceReport
           <div
             key={area.id}
             className={`absolute border-4 rounded-full transition-all ${area.severity === 'Critical'
-                ? 'border-red-500 bg-red-500/20'
-                : 'border-orange-500 bg-orange-500/20'
+              ? 'border-red-500 bg-red-500/20'
+              : 'border-orange-500 bg-orange-500/20'
               }`}
             style={{
-              left: `${(area.center_x - area.radius) * 100}%`,
-              top: `${(area.center_y - area.radius) * 100}%`,
+              left: `${area.center_x * 100}%`,
+              top: `${area.center_y * 100}%`,
               width: `${area.radius * 2 * 100}%`,
-              height: `${area.radius * 2 * 100}%` // Assuming image aspect ratio isn't distorted or radius is relative to width and we want circle.
-              // Actually radius seems to be relative to width in the pixel calc (r = area.radius * width).
-              // If we want a perfect circle in % on a potentially non-square image, % height might distort if aspect ratio != 1.
-              // BETTER: Use aspect ratio agnostic positioning if possible, OR just trust the visual overlay.
-              // For this strictly controlled lightbox where image fits, we can use standard % positioning.
-              // However, 'height' in % is relative to parent height.
-              // If area.radius is normalized to WIDTH, then height needs to be adjusted by aspect ratio.
-              // But we don't have aspect ratio easy here.
-              // Let's rely on standard box model for now.
+              aspectRatio: '1/1',
+              transform: 'translate(-50%, -50%)'
             }}
           >
             <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-white px-2 py-1 rounded-lg shadow-lg text-sm font-bold border border-gray-200 whitespace-nowrap z-50">
@@ -110,6 +110,55 @@ export default function ProduceReport({ image, results, onClose }: ProduceReport
           </div>
         ))}
       </ImageLightbox>
+
+      {/* NEW: BATCH / SCENE CONTEXT CARD */}
+      {(results.overall_scene || results.batch_summary) && (
+        <div className="bg-white rounded-[2rem] p-6 lg:p-8 shadow-xl shadow-apeel-green/5 border border-apeel-green/10 relative overflow-hidden">
+
+          <div className="flex items-center gap-4 mb-6 border-b border-gray-100 pb-4">
+            <div className="p-3 bg-apeel-green text-white rounded-xl shadow-md">
+              <Maximize2 className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-xl font-serif font-bold text-gray-900">Batch Inspection Context</h3>
+              <p className="text-sm text-gray-500 font-medium">Holistic analysis of the entire scene</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400">Scene Description</h4>
+              <p className="text-gray-700 leading-relaxed text-sm font-medium">{results.overall_scene}</p>
+            </div>
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold uppercase tracking-widest text-gray-400">Batch Summary</h4>
+              <p className="text-gray-700 leading-relaxed text-sm font-medium">{results.batch_summary}</p>
+            </div>
+          </div>
+
+          {/* Batch Stats Widget */}
+          {results.batch_statistics && (
+            <div className="mt-6 bg-gray-50 rounded-xl p-4 border border-gray-100 grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <div className="text-2xl font-bold text-gray-900">{results.batch_statistics.total_items}</div>
+                <div className="text-[10px] font-bold uppercase text-gray-400">Total Fruit</div>
+              </div>
+              <div>
+                <div className="text-lg font-bold text-gray-900 truncate" title={results.batch_statistics.uniformity}>{results.batch_statistics.uniformity}</div>
+                <div className="text-[10px] font-bold uppercase text-gray-400">Uniformity</div>
+              </div>
+              <div className="col-span-2">
+                <div className="flex flex-wrap gap-2">
+                  {results.batch_statistics.predominant_issues?.map((issue: string, i: number) => (
+                    <span key={i} className="px-2 py-1 bg-white border border-gray-200 text-gray-600 text-xs font-bold rounded-lg shadow-sm">{issue}</span>
+                  ))}
+                </div>
+                <div className="text-[10px] font-bold uppercase text-gray-400 mt-2">Common Defects</div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -142,7 +191,7 @@ export default function ProduceReport({ image, results, onClose }: ProduceReport
               ref={imageRef}
               src={image}
               alt="Produce"
-              className="w-full rounded-2xl"
+              className="max-w-full max-h-[600px] w-auto h-auto mx-auto rounded-2xl object-contain"
               onLoad={() => {
                 if (imageRef.current) {
                   setImageSize({
@@ -243,6 +292,26 @@ export default function ProduceReport({ image, results, onClose }: ProduceReport
               )}
             </div>
 
+            {/* Estimated Shelf Life */}
+            {(results.shelf_life || results.estimates?.shelf_life_days || results.shelf_life_estimate) && (
+              <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl border border-blue-200">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Clock className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-xs text-blue-600 font-bold uppercase mb-0.5">Estimated Shelf Life</div>
+                    <div className="text-2xl font-bold text-blue-900">
+                      {results.shelf_life || results.estimates?.shelf_life_days || results.shelf_life_estimate} days
+                    </div>
+                    <div className="text-xs text-blue-700 mt-1">
+                      Based on current condition and grade
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-3">
               <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
                 <div className="flex items-start gap-3">
@@ -337,6 +406,74 @@ export default function ProduceReport({ image, results, onClose }: ProduceReport
                   <div className="text-sm text-gray-700">{results.sustainability_impact}</div>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Action Buttons - Explore More */}
+          <div className="bg-gradient-to-br from-apeel-green to-green-600 rounded-[2rem] p-6 shadow-lg text-white">
+            <h3 className="font-serif font-bold text-xl mb-3 flex items-center gap-2">
+              <Search className="w-6 h-6" />
+              Explore More
+            </h3>
+            <p className="text-white/90 text-sm mb-4">
+              Get expert advice on storage, recipes, and everything about {results.variety.name}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                onClick={() => handleExploreAction(`How to store ${results.variety.name} to maximize shelf life and freshness`)}
+                className="bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 p-4 rounded-xl transition-all text-left group"
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <Refrigerator className="w-5 h-5 text-white" />
+                  <span className="font-bold text-white">Storage Tips</span>
+                  <ExternalLink className="w-4 h-4 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+                <p className="text-xs text-white/80">
+                  Optimal storage conditions and preservation methods
+                </p>
+              </button>
+
+              <button
+                onClick={() => handleExploreAction(`Best recipes and cooking ideas using ${results.variety.name}`)}
+                className="bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 p-4 rounded-xl transition-all text-left group"
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <ChefHat className="w-5 h-5 text-white" />
+                  <span className="font-bold text-white">Recipe Ideas</span>
+                  <ExternalLink className="w-4 h-4 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+                <p className="text-xs text-white/80">
+                  Delicious ways to use your {results.variety.name}
+                </p>
+              </button>
+
+              <button
+                onClick={() => handleExploreAction(`Nutritional benefits and health facts about ${results.variety.name}`)}
+                className="bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 p-4 rounded-xl transition-all text-left group"
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <Apple className="w-5 h-5 text-white" />
+                  <span className="font-bold text-white">Nutrition Info</span>
+                  <ExternalLink className="w-4 h-4 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+                <p className="text-xs text-white/80">
+                  Health benefits and nutritional value
+                </p>
+              </button>
+
+              <button
+                onClick={() => handleExploreAction(`How to identify quality and freshness of ${results.variety.name} when buying`)}
+                className="bg-white/20 hover:bg-white/30 backdrop-blur-sm border border-white/30 p-4 rounded-xl transition-all text-left group"
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <Eye className="w-5 h-5 text-white" />
+                  <span className="font-bold text-white">Quality Guide</span>
+                  <ExternalLink className="w-4 h-4 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+                <p className="text-xs text-white/80">
+                  Expert tips for selecting the best produce
+                </p>
+              </button>
             </div>
           </div>
 

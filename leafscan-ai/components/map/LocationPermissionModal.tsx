@@ -48,14 +48,14 @@ export default function LocationPermissionModal({ isOpen, onEnable, onDefault }:
                                 className="w-full bg-apeel-green hover:bg-emerald-600 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg hover:shadow-xl"
                             >
                                 <Check className="w-4 h-4" />
-                                Enable Location
+                                Enable Location Access
                             </button>
 
                             <button
                                 onClick={onDefault}
                                 className="w-full bg-transparent hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-500 dark:text-stone-400 font-medium py-3 rounded-xl transition-colors text-sm"
                             >
-                                Use Default Location (Casablanca)
+                                Cancel
                             </button>
                         </div>
                     </div>

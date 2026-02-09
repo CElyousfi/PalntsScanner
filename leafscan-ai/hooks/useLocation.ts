@@ -4,14 +4,7 @@ interface Location {
     latitude: number
     longitude: number
     accuracy?: number
-    source: 'gps' | 'ip' | 'default'
-}
-
-// Default location: Casablanca, Morocco
-const DEFAULT_LOCATION: Location = {
-    latitude: 33.5731,
-    longitude: -7.5898,
-    source: 'default'
+    source: 'gps' | 'ip'
 }
 
 export function useLocation() {
@@ -33,8 +26,7 @@ export function useLocation() {
     const requestLocation = () => {
         setLoading(true)
         if (!navigator.geolocation) {
-            setError('Geolocation not supported')
-            setLocation(DEFAULT_LOCATION)
+            setError('Geolocation is not supported by your browser')
             setLoading(false)
             return
         }
@@ -62,12 +54,9 @@ export function useLocation() {
                 setError(null)
             },
             (err) => {
-                console.warn("GPS failed, using default/IP fallback", err)
-                // Only set error if we haven't got a location yet? 
-                // Or maybe just let it fail silently if it's an update failure?
+                console.warn("GPS failed:", err)
                 if (!location) {
-                    setError('GPS Access Denied')
-                    setLocation(DEFAULT_LOCATION)
+                    setError('Unable to access your location. Please enable GPS and try again.')
                     setLoading(false)
                 }
             },
@@ -75,10 +64,9 @@ export function useLocation() {
         )
     }
 
-    // Auto-load IP location or default on mount
+    // Don't auto-load any default - location must be explicitly requested
     useEffect(() => {
-        // Mocking an IP location fetch for now
-        setLocation(DEFAULT_LOCATION)
+        // Location will be requested by user interaction
         setLoading(false)
     }, [])
 

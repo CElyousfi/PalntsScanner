@@ -5,8 +5,10 @@ import { LanguageProvider } from '@/context/LanguageContext'
 import { AuthProvider } from '@/context/AuthContext'
 import { MissionProvider } from '@/context/MissionContext'
 import { AutonomyProvider } from '@/context/AutonomyContext'
+import { LocationProvider } from '@/context/LocationContext'
 import ErrorSuppressor from '@/components/ErrorSuppressor'
 import GlobalStateSync from '@/components/GlobalStateSync'
+import LocationPermissionGate from '@/components/LocationPermissionGate'
 
 const urbanist = Urbanist({
   subsets: ['latin'],
@@ -33,11 +35,15 @@ export default function RootLayout({
         <GlobalStateSync />
         <LanguageProvider>
           <AuthProvider>
-            <AutonomyProvider>
-              <MissionProvider>
-                {children}
-              </MissionProvider>
-            </AutonomyProvider>
+            <LocationProvider>
+              <LocationPermissionGate>
+                <AutonomyProvider>
+                  <MissionProvider>
+                    {children}
+                  </MissionProvider>
+                </AutonomyProvider>
+              </LocationPermissionGate>
+            </LocationProvider>
           </AuthProvider>
         </LanguageProvider>
       </body>

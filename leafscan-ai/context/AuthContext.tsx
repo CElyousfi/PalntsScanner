@@ -47,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             id: guestId,
             email: 'guest@leafscan.local',
             name: 'Guest User',
-            region: 'Casablanca',
+            region: undefined, // Will be set from user location
             role: 'farmer',
             isGuest: true
         }
@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const authUser = toAuthUser(currentUser)
                 const profile: UserProfile = {
                     ...authUser,
-                    region: currentUser.user_metadata?.region || 'Casablanca',
+                    region: currentUser.user_metadata?.region, // Will be updated from user location if not set
                     role: currentUser.user_metadata?.role || 'farmer',
                     isGuest: false
                 }
@@ -111,7 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (authUser) {
                 const profile: UserProfile = {
                     ...authUser,
-                    region: 'Casablanca', // Default region
+                    region: undefined, // Will be set from user location
                     role: 'farmer',
                     isGuest: false
                 }
@@ -136,7 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (authUser) {
             const profile: UserProfile = {
                 ...toAuthUser(authUser),
-                region: authUser.user_metadata?.region || 'Casablanca',
+                region: authUser.user_metadata?.region, // Will be updated from user location if not set
                 role: authUser.user_metadata?.role || 'farmer',
                 isGuest: false
             }
@@ -146,7 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     }
 
-    const signup = async (name: string, email: string, password: string, region: string = 'Casablanca') => {
+    const signup = async (name: string, email: string, password: string, region?: string) => {
         const { user: authUser } = await supabaseSignUp(email, password, name)
         if (authUser) {
             // Update user metadata with region

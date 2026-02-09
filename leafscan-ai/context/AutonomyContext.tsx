@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo, R
 import { getSystemState, saveSystemState, initializeSystem, FarmSystemState } from '@/lib/store'
 import { getSystemStateFromDatabase, migrateFromLocalStorage } from '@/lib/database'
 import { useAuth } from '@/context/AuthContext'
+import { useLocationContext } from '@/context/LocationContext'
 import { DiagnosisResult, ActionRescueResult } from '@/types'
 
 // Global Chat Context Interface
@@ -45,6 +46,7 @@ const AutonomyContext = createContext<AutonomyContextProps | null>(null)
 
 export function AutonomyProvider({ children }: { children: ReactNode }) {
     const { user } = useAuth()
+    const { location: userLocation } = useLocationContext()
     const [system, setSystem] = useState<FarmSystemState | null>(null)
     const [notifications, setNotifications] = useState<string[]>([])
 
@@ -231,50 +233,38 @@ export function AutonomyProvider({ children }: { children: ReactNode }) {
     // Derived active profile
     const activeProfile = system?.profiles?.find(p => p.id === system.activeProfileId) || system?.profiles?.[0]
 
-    // Environment State
-    const [envData, setEnvData] = useState<{
-        location: { lat: number; lng: number; source: 'gps' | 'default' } | null
-        weather: { temp: number; humidity: number; wind: number; condition: string } | null
-    }>({ location: null, weather: null })
+    // Environment State - derived from LocationContext
+    const [weather, setWeather] = useState<{ temp: number; humidity: number; wind: number; condition: string } | null>(null)
 
-    // Initialize Location & Weather Simulation (Global)
+    // Update weather based on user location
     useEffect(() => {
-        // 1. Get Location (Simple Global Check)
-        const cachedPermission = localStorage.getItem('leafscan_location_permission')
-        if (cachedPermission === 'granted' && navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude, source: 'gps' as const }
-                    updateEnvironment(loc)
-                },
-                () => {
-                    // Fallback to Casablanca
-                    updateEnvironment({ lat: 33.5731, lng: -7.5898, source: 'default' })
-                },
-                { enableHighAccuracy: true }
-            )
-        } else {
-            updateEnvironment({ lat: 33.5731, lng: -7.5898, source: 'default' })
-        }
-    }, [])
+        if (!userLocation) return
 
-    const updateEnvironment = (loc: { lat: number; lng: number; source: 'gps' | 'default' }) => {
-        // Simulate Weather based on Loc
+        // Simulate Weather based on actual user location
         const time = Date.now()
-        const temp = Math.round(24 + Math.sin(time / 10000) * 2 - (loc.lat - 33))
+        const temp = Math.round(24 + Math.sin(time / 10000) * 2 - (userLocation.lat - 33))
         const humidity = Math.round(60 + Math.cos(time / 15000) * 10)
         const wind = Math.round(15 + Math.sin(time / 8000) * 5)
 
-        setEnvData({
-            location: loc,
-            weather: {
-                temp,
-                humidity,
-                wind,
-                condition: Math.random() > 0.8 ? 'Rain' : 'Clear'
-            }
+        setWeather({
+            temp,
+            humidity,
+            wind,
+            condition: Math.random() > 0.8 ? 'Rain' : 'Clear'
         })
-    }
+
+        console.log('[AutonomyContext] 🌡️ Weather updated for location:', userLocation.city || 'Unknown')
+    }, [userLocation])
+
+    // Construct envData from userLocation and weather
+    const envData = useMemo(() => ({
+        location: userLocation ? {
+            lat: userLocation.lat,
+            lng: userLocation.lng,
+            source: userLocation.source === 'gps' ? 'gps' as const : 'default' as const
+        } : null,
+        weather
+    }), [userLocation, weather])
 
     const contextValue = useMemo(() => ({
         system,

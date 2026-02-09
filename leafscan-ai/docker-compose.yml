@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  leafscan-ai:
+    image: theroadroller/leafscan-ai:latest
+    container_name: leafscan-ai
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Required: Add your API keys here or in .env file
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - NEXT_PUBLIC_MAPBOX_TOKEN=${NEXT_PUBLIC_MAPBOX_TOKEN}
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      
+      # Optional: Production settings
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+      
+    # Health check
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 40s
+    
+    # Resource limits (optional - adjust based on your needs)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Networks
+    networks:
+      - leafscan-network
+
+networks:
+  leafscan-network:
+    driver: bridge

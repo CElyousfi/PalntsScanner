@@ -45,7 +45,9 @@ import {
   LeafyGreen,
   MapPin,
   Maximize2,
-  Grid3x3
+  Grid3x3,
+  FileText,
+  Plus
 } from 'lucide-react'
 import ImageLightbox from '@/components/ui/ImageLightbox'
 import { useRouter } from 'next/navigation'
@@ -74,9 +76,11 @@ interface DiagnosisReportProps {
   onStartMonitoring?: () => void
   onVisualGenerated?: (prompt: string, imageUrl: string) => void
   onExploreAction?: (context: string) => void
+  scanId?: string
+  onCreateNote?: (scanId: string) => void
 }
 
-export default function DiagnosisReport({ result, actionResult, image, onReset, onOpenTreatmentPlanner, onOpenChat, onSymptomClick, onStartMonitoring, onVisualGenerated, onExploreAction }: DiagnosisReportProps) {
+export default function DiagnosisReport({ result, actionResult, image, onReset, onOpenTreatmentPlanner, onOpenChat, onSymptomClick, onStartMonitoring, onVisualGenerated, onExploreAction, scanId, onCreateNote }: DiagnosisReportProps) {
   const { t, language } = useLanguage()
 
   const router = useRouter()
@@ -226,6 +230,16 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
         </div>
 
         <div className="flex gap-3">
+          {onCreateNote && scanId && (
+            <button 
+              onClick={() => onCreateNote(scanId)} 
+              className="btn-secondary py-3 px-5 text-sm flex items-center gap-2 border-blue-500/30 text-blue-600 hover:bg-blue-600 hover:text-white transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              <FileText className="w-4 h-4" />
+              <span>Create Note</span>
+            </button>
+          )}
           {onOpenTreatmentPlanner && (
             <button onClick={onOpenTreatmentPlanner} className="btn-secondary py-3 px-5 text-sm flex items-center gap-2 border-apeel-green/30 text-apeel-green hover:bg-apeel-green hover:text-white transition-all">
               <Calendar className="w-4 h-4" />
@@ -886,21 +900,21 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Step 1 */}
           <div className="space-y-4">
-            <span className="text-rose-300 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
-              <Zap className="w-3 h-3" /> Immediate
+            <span className="text-rose-300 font-bold text-sm uppercase tracking-widest flex items-center gap-2">
+              <Zap className="w-4 h-4" /> Immediate
             </span>
-            <ul className="space-y-3">
+            <ul className="space-y-4">
               {(result.interventionPlan?.immediate || (result.organicTreatments || []).slice(0, 2)).map((t, i) => (
                 <li key={i} className="group/item">
-                  <div className="flex gap-4 items-start text-white/90">
+                  <div className="flex gap-3 items-start text-white/90">
                     <div className="shrink-0 pt-1">
-                      <span className="w-6 h-6 rounded-full bg-rose-500/20 text-rose-300 flex items-center justify-center text-xs font-bold border border-rose-500/20">{i + 1}</span>
+                      <span className="w-7 h-7 rounded-full bg-rose-500/20 text-rose-300 flex items-center justify-center text-sm font-bold border border-rose-500/20">{i + 1}</span>
                     </div>
-                    <div className="flex flex-col gap-3 w-full">
-                      <span className="leading-relaxed">{t}</span>
+                    <div className="flex flex-col gap-3 w-full min-w-0">
+                      <span className="leading-relaxed text-base break-words">{t}</span>
                       <button
                         onClick={(e) => {
                           e.preventDefault()
@@ -923,18 +937,18 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
 
           {/* Step 2 */}
           <div className="space-y-4 lg:border-l lg:border-white/10 lg:pl-8">
-            <span className="text-amber-300 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
-              <Clock className="w-3 h-3" /> Short Term
+            <span className="text-amber-300 font-bold text-sm uppercase tracking-widest flex items-center gap-2">
+              <Clock className="w-4 h-4" /> Short Term
             </span>
-            <ul className="space-y-3">
+            <ul className="space-y-4">
               {(result.interventionPlan?.shortTerm || (result.preventionTips || []).slice(0, 2)).map((t, i) => (
                 <li key={i} className="group/item">
-                  <div className="flex gap-4 items-start text-white/90">
+                  <div className="flex gap-3 items-start text-white/90">
                     <div className="shrink-0 pt-1">
-                      <span className="w-6 h-6 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center text-xs font-bold border border-amber-500/20">{i + 1}</span>
+                      <span className="w-7 h-7 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center text-sm font-bold border border-amber-500/20">{i + 1}</span>
                     </div>
-                    <div className="flex flex-col gap-3 w-full">
-                      <span className="leading-relaxed">{t}</span>
+                    <div className="flex flex-col gap-3 w-full min-w-0">
+                      <span className="leading-relaxed text-base break-words">{t}</span>
                       <button
                         onClick={(e) => {
                           e.preventDefault()
@@ -957,18 +971,18 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
 
           {/* Step 3 */}
           <div className="space-y-4 lg:border-l lg:border-white/10 lg:pl-8">
-            <span className="text-emerald-300 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
-              <Shield className="w-3 h-3" /> Long Term
+            <span className="text-emerald-300 font-bold text-sm uppercase tracking-widest flex items-center gap-2">
+              <Shield className="w-4 h-4" /> Long Term
             </span>
-            <ul className="space-y-3">
+            <ul className="space-y-4">
               {(result.interventionPlan?.longTerm || (result.preventionTips || []).slice(2, 4)).map((t, i) => (
                 <li key={i} className="group/item">
-                  <div className="flex gap-4 items-start text-white/90">
+                  <div className="flex gap-3 items-start text-white/90">
                     <div className="shrink-0 pt-1">
-                      <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+                      <CheckCircle2 className="w-7 h-7 text-emerald-400" />
                     </div>
-                    <div className="flex flex-col gap-3 w-full">
-                      <span className="leading-relaxed">{t}</span>
+                    <div className="flex flex-col gap-3 w-full min-w-0">
+                      <span className="leading-relaxed text-base break-words">{t}</span>
                       <button
                         onClick={(e) => {
                           e.preventDefault()

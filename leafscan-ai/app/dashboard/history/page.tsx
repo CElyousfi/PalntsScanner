@@ -3,14 +3,18 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useAutonomy } from '@/hooks/useAutonomy'
 import { useAuth } from '@/context/AuthContext'
+import { useNotes } from '@/context/NotesContext'
 import { History, Calendar, AlertTriangle, CheckCircle2, Map, ArrowRight, Clock, Filter, TrendingUp, Leaf, Bug, Droplet, FileText, Save, Apple } from 'lucide-react'
 import PageShell from '@/components/dashboard/PageShell'
 import Image from 'next/image'
 import { updateAnalysisNotes } from '@/lib/store'
+import { useRouter } from 'next/navigation'
 
 export default function HistoryPage() {
     const { system, activeProfile, refresh } = useAutonomy()
     const { user } = useAuth()
+    const { createNote, updateNote } = useNotes()
+    const router = useRouter()
     const [filterSeverity, setFilterSeverity] = useState<string>('all')
     const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'severity'>('newest')
     const [editingNotes, setEditingNotes] = useState<string | null>(null)
@@ -110,20 +114,14 @@ export default function HistoryPage() {
         <PageShell
             title="History Log"
             hideControls={true}
-            badge={
-                <div className="bg-[#EAE8D9] text-stone-800 text-xs px-3 py-1 rounded-full font-sans uppercase tracking-wider font-bold inline-flex items-center gap-1 shadow-sm border border-stone-300/50">
-                    <Clock className="w-3 h-3" />
-                    Intervention Records
-                </div>
-            }
         >
             {/* Statistics Cards - Interactive Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 pt-2">
                 {/* Total Scans - Reset Filter */}
                 <button
                     onClick={() => setFilterSeverity('all')}
                     className={`bg-white rounded-2xl p-6 shadow-sm border transition-all text-left group ${filterSeverity === 'all'
-                            ? 'border-apeel-green ring-2 ring-apeel-green/20 shadow-md transform scale-[1.02]'
+                            ? 'border-apeel-green ring-2 ring-apeel-green/20 shadow-md'
                             : 'border-stone-100 hover:border-apeel-green/50 hover:shadow-md'
                         }`}
                 >
@@ -138,7 +136,7 @@ export default function HistoryPage() {
                 <button
                     onClick={() => setFilterSeverity('high')}
                     className={`bg-white rounded-2xl p-6 shadow-sm border transition-all text-left group ${filterSeverity === 'high'
-                            ? 'border-red-500 ring-2 ring-red-500/20 shadow-md transform scale-[1.02]'
+                            ? 'border-red-500 ring-2 ring-red-500/20 shadow-md'
                             : 'border-red-100 hover:border-red-300 hover:shadow-md'
                         }`}
                 >
@@ -153,7 +151,7 @@ export default function HistoryPage() {
                 <button
                     onClick={() => setFilterSeverity('medium')}
                     className={`bg-white rounded-2xl p-6 shadow-sm border transition-all text-left group ${filterSeverity === 'medium'
-                            ? 'border-amber-500 ring-2 ring-amber-500/20 shadow-md transform scale-[1.02]'
+                            ? 'border-amber-500 ring-2 ring-amber-500/20 shadow-md'
                             : 'border-amber-100 hover:border-amber-300 hover:shadow-md'
                         }`}
                 >
@@ -168,7 +166,7 @@ export default function HistoryPage() {
                 <button
                     onClick={() => setFilterSeverity('low')}
                     className={`bg-white rounded-2xl p-6 shadow-sm border transition-all text-left group ${filterSeverity === 'low'
-                            ? 'border-green-500 ring-2 ring-green-500/20 shadow-md transform scale-[1.02]'
+                            ? 'border-green-500 ring-2 ring-green-500/20 shadow-md'
                             : 'border-green-100 hover:border-green-300 hover:shadow-md'
                         }`}
                 >
@@ -236,12 +234,14 @@ export default function HistoryPage() {
                                     alt="Analysis"
                                     className="w-full h-full object-cover mix-blend-multiply opacity-90 group-hover:opacity-100 transition-opacity"
                                 />
-                                <div className={`absolute top-3 left-3 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md shadow-sm border border-white/10 ${record.diagnosis?.severity === 'high' ? 'bg-rose-500 text-white' :
-                                    record.diagnosis?.severity === 'medium' ? 'bg-amber-500 text-white' :
-                                        'bg-emerald-500 text-white'
-                                    }`}>
-                                    {record.diagnosis?.severity || 'Low'} Risk
-                                </div>
+                                {record.scanType !== 'crop' && (
+                                    <div className={`absolute top-3 left-3 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider backdrop-blur-md shadow-sm border border-white/10 ${record.diagnosis?.severity === 'high' ? 'bg-rose-500 text-white' :
+                                        record.diagnosis?.severity === 'medium' ? 'bg-amber-500 text-white' :
+                                            'bg-emerald-500 text-white'
+                                        }`}>
+                                        {record.diagnosis?.severity || 'Low'} Risk
+                                    </div>
+                                )}
                             </div>
 
                             {/* Content */}
@@ -250,7 +250,10 @@ export default function HistoryPage() {
                                     <div className="flex justify-between items-start mb-4">
                                         <div>
                                             <h3 className="text-2xl font-serif font-bold text-stone-800 group-hover:text-emerald-800 transition-colors">
-                                                {record.diagnosis?.diseases?.[0]?.name || 'Unknown Issue'}
+                                                {record.scanType === 'crop' 
+                                                    ? `${record.produceResults?.variety?.name || 'Produce'} Quality Assessment`
+                                                    : (record.diagnosis?.diseases?.[0]?.name || 'Unknown Issue')
+                                                }
                                             </h3>
                                             <p className="text-sm text-stone-400 flex items-center gap-2 mt-2 font-medium">
                                                 <Calendar className="w-4 h-4" />
@@ -267,7 +270,10 @@ export default function HistoryPage() {
                                     </div>
 
                                     <p className="text-stone-600 leading-relaxed line-clamp-2 mb-4 font-serif text-lg">
-                                        {record.diagnosis?.diseases?.[0]?.description || 'No description available for this record.'}
+                                        {record.scanType === 'crop'
+                                            ? `Grade: ${record.produceResults?.grading?.grade || 'N/A'} • Quality Score: ${record.produceResults?.overall_quality_score || 'N/A'}/100`
+                                            : (record.diagnosis?.diseases?.[0]?.description || 'No description available for this record.')
+                                        }
                                     </p>
 
                                     {/* Scan Type Badge */}
@@ -296,14 +302,69 @@ export default function HistoryPage() {
                                                 <button
                                                     onClick={async () => {
                                                         const notes = notesText[record.id] || record.notes || ''
+                                                        if (!notes.trim()) {
+                                                            alert('Please add some notes before saving')
+                                                            return
+                                                        }
+                                                        
+                                                        // Create a note in the notes system
+                                                        const newNote = createNote('reports', record.id)
+                                                        
+                                                        // Create notebook structure with observations
+                                                        const scanType = record.scanType === 'crop' ? 'Crop Scan' : 'Leaf Scan'
+                                                        const scanDate = new Date(record.timestamp).toLocaleDateString()
+                                                        
+                                                        const notebook = {
+                                                            id: newNote.id,
+                                                            title: newNote.title,
+                                                            cells: [
+                                                                {
+                                                                    id: `cell_${Date.now()}_0`,
+                                                                    type: 'markdown',
+                                                                    content: `# ${scanType} Analysis\n\n**Date:** ${scanDate}  \n**Scan ID:** ${record.id}`,
+                                                                    metadata: {}
+                                                                },
+                                                                {
+                                                                    id: `cell_${Date.now()}_1`,
+                                                                    type: 'markdown',
+                                                                    content: `## My Observations\n\n${notes}`,
+                                                                    metadata: {}
+                                                                },
+                                                                {
+                                                                    id: `cell_${Date.now()}_2`,
+                                                                    type: 'markdown',
+                                                                    content: `## Scan Results\n\n${record.scanType === 'crop' 
+                                                                        ? `**Produce:** ${record.produceResults?.produceType || 'Unknown'}  \n**Quality Score:** ${record.produceResults?.overall_quality_score || 0}/100  \n**Grade:** ${record.produceResults?.grade || 'N/A'}  \n**Status:** ${record.produceResults?.consumability_status || 'Unknown'}  \n**Defects:** ${record.produceResults?.areas?.length || 0}`
+                                                                        : `**Crop:** ${record.diagnosis?.cropType || 'Unknown'}  \n**Severity:** ${record.diagnosis?.severity || 'N/A'}  \n**Diseases:** ${record.diagnosis?.diseases?.join(', ') || 'None detected'}`
+                                                                    }`,
+                                                                    metadata: {}
+                                                                }
+                                                            ],
+                                                            metadata: {
+                                                                created: new Date(),
+                                                                modified: new Date(),
+                                                                tags: ['scan-linked'],
+                                                                version: '1.0'
+                                                            }
+                                                        }
+                                                        
+                                                        // Update the note with notebook content
+                                                        updateNote(newNote.id, {
+                                                            content: JSON.stringify(notebook, null, 2)
+                                                        })
+                                                        
+                                                        // Save to localStorage as well for backwards compatibility
                                                         await updateAnalysisNotes(user?.id || '', record.id, notes)
                                                         setEditingNotes(null)
                                                         refresh()
+                                                        
+                                                        // Redirect to notes page
+                                                        router.push('/dashboard/notes')
                                                     }}
                                                     className="flex items-center gap-1 px-3 py-1 bg-apeel-green text-white rounded-lg text-xs font-bold hover:bg-apeel-dark transition-colors"
                                                 >
                                                     <Save className="w-3 h-3" />
-                                                    Save
+                                                    Save to Notes
                                                 </button>
                                             ) : (
                                                 <button

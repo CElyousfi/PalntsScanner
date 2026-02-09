@@ -13,7 +13,7 @@ interface NotesContextType {
   isAIAssistantOpen: boolean
   
   // Note operations
-  createNote: (folder?: string) => FarmNote
+  createNote: (folder?: string, scanId?: string) => FarmNote
   updateNote: (id: string, updates: Partial<FarmNote>) => void
   removeNote: (id: string) => void
   setActiveNote: (note: FarmNote | null) => void
@@ -47,8 +47,8 @@ export function NotesProvider({ children }: { children: React.ReactNode }) {
     setFolders(getAllFolders())
   }, [])
 
-  const createNote = useCallback((folder?: string) => {
-    const newNote = createNewNote(user?.id || 'guest', folder)
+  const createNote = useCallback((folder?: string, scanId?: string) => {
+    const newNote = createNewNote(user?.id || 'guest', folder, scanId)
     saveNote(newNote)
     setNotes(prev => [newNote, ...prev])
     setActiveNote(newNote)

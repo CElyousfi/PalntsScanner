@@ -10,8 +10,11 @@ import TreatmentPlanner from '@/components/TreatmentPlanner'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { useAutonomy } from '@/hooks/useAutonomy'
+import { useNotes } from '@/context/NotesContext'
 import { DiagnosisResult, ActionRescueResult } from '@/types'
+import { FarmNote } from '@/types/notes'
 import { saveSystemState, saveAnalysisToHistory, saveAnalysisToHistoryAsync, updateHistoryEntry, saveGrowthEntry } from '@/lib/store'
+import { saveNote } from '@/lib/notesStore'
 import PageShell from '@/components/dashboard/PageShell'
 import { Leaf, Apple, Sparkles, AlertTriangle } from 'lucide-react'
 
@@ -27,6 +30,7 @@ export default function UnifiedScanPage() {
     const searchParams = useSearchParams()
     const { user } = useAuth()
     const { system, refresh, toggleChat, setChatContext } = useAutonomy()
+    const { createNote, updateNote, setActiveNote } = useNotes()
 
     // Mode state - check URL param first
     const [mode, setMode] = useState<ScanMode>('leaf')
@@ -326,6 +330,19 @@ export default function UnifiedScanPage() {
 
                         const targetPlantId = system.activeProfileId || system.profiles?.[0]?.id || 'unknown'
 
+                        // Calculate severity based on quality score
+                        const qualityScore = data.results?.overall_quality_score || 0
+                        let severity: 'low' | 'medium' | 'high' = 'low'
+                        if (qualityScore < 40) {
+                            severity = 'high' // Do Not Consume
+                        } else if (qualityScore < 60) {
+                            severity = 'medium' // Poor Quality
+                        } else if (qualityScore < 80) {
+                            severity = 'medium' // Consume Soon
+                        } else {
+                            severity = 'low' // Safe to Eat
+                        }
+
                         // Create a minimal diagnosis for crop scans
                         const cropDiagnosis: DiagnosisResult = {
                             id: scanId,
@@ -336,8 +353,8 @@ export default function UnifiedScanPage() {
                             organicTreatments: [],
                             chemicalTreatments: [],
                             preventionTips: [],
-                            additionalInfo: `Quality Grade: ${data.results?.grade || 'N/A'}`,
-                            severity: 'low'
+                            additionalInfo: `Quality Grade: ${data.results?.grade || 'N/A'} • Score: ${qualityScore}/100`,
+                            severity: severity
                         }
 
                         // Save to both localStorage AND Supabase
@@ -389,8 +406,159 @@ export default function UnifiedScanPage() {
         setDiagnosis(null)
         setActionResult(null)
         setProduceResults(null)
-        setChatInitialQuery(undefined)
+        setCurrentScanId(null)
         setValidationError(null)
+    }
+
+    const handleCreateNote = async (scanId: string) => {
+        // Get the complete scan data
+        const scanData = mode === 'leaf' 
+            ? { diagnosis, actionResult, image: uploadedImage, scanType: 'leaf' }
+            : { produceResults, image: uploadedImage, scanType: 'crop' }
+        
+        // Build comprehensive notebook content
+        const scanDate = new Date().toLocaleDateString()
+        const scanType = mode === 'leaf' ? 'Leaf Scan' : 'Crop Scan'
+        
+        // Generate annotated image and compress it for storage
+        let annotatedImage = uploadedImage || ''
+        try {
+            const { generateAnnotatedImage } = await import('@/lib/ai/annotate')
+            const fullAnnotated = await generateAnnotatedImage(uploadedImage || '', {
+                scanType: mode,
+                width: 800, // Smaller width to reduce size
+                leaf: mode === 'leaf' ? { highlightedAreas: diagnosis?.highlightedAreas } : undefined,
+                crop: mode === 'crop' ? { areas: produceResults?.areas } : undefined
+            })
+            // Compress further for localStorage
+            annotatedImage = await compressImage(fullAnnotated, 600)
+        } catch (e) {
+            console.warn('Failed to generate annotated image, using compressed original:', e)
+            // Compress original image as fallback
+            annotatedImage = await compressImage(uploadedImage || '', 600)
+        }
+        
+        // Build comprehensive cells based on scan type
+        const cells = [
+            {
+                id: `cell_${Date.now()}_0`,
+                type: 'image',
+                content: `${annotatedImage}|||${scanType} Analysis - ${scanDate}`,
+                metadata: {}
+            }
+        ]
+
+        if (mode === 'leaf' && diagnosis) {
+            // LEAF SCAN CELLS
+            cells.push({
+                id: `cell_${Date.now()}_1`,
+                type: 'markdown',
+                content: `# ${diagnosis.cropType || 'Plant'} Diagnosis\n\n**Scan ID:** ${scanId}  \n**Date:** ${scanDate}  \n**Severity:** ${diagnosis.severity?.toUpperCase() || 'N/A'}\n\n## Detected Issues\n\n${diagnosis.diseases && diagnosis.diseases.length > 0 ? diagnosis.diseases.map((d: any) => `- **${d.name || d}** ${d.confidence ? `(${Math.round(d.confidence * 100)}% confidence)` : ''}\n  ${d.description ? `  _${d.description}_` : ''}`).join('\n') : '✅ No diseases detected'}\n\n## Symptoms Observed\n\n${diagnosis.symptoms && diagnosis.symptoms.length > 0 ? diagnosis.symptoms.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n') : 'No specific symptoms listed'}\n\n## Likely Causes\n\n${diagnosis.causes && diagnosis.causes.length > 0 ? diagnosis.causes.map((c: string, i: number) => `${i + 1}. ${c}`).join('\n') : 'Causes not identified'}`,
+                metadata: {}
+            })
+
+            cells.push({
+                id: `cell_${Date.now()}_2`,
+                type: 'markdown',
+                content: `## Treatment Plan\n\n### 🌿 Organic Treatments\n\n${diagnosis.organicTreatments && diagnosis.organicTreatments.length > 0 ? diagnosis.organicTreatments.map((t: string, i: number) => `${i + 1}. ${t}`).join('\n') : 'No organic treatments recommended'}\n\n### 🧪 Chemical Treatments\n\n${diagnosis.chemicalTreatments && diagnosis.chemicalTreatments.length > 0 ? diagnosis.chemicalTreatments.map((t: string, i: number) => `${i + 1}. ${t}`).join('\n') : 'No chemical treatments recommended'}\n\n### 🛡️ Prevention Tips\n\n${diagnosis.preventionTips && diagnosis.preventionTips.length > 0 ? diagnosis.preventionTips.map((t: string, i: number) => `${i + 1}. ${t}`).join('\n') : 'No prevention tips available'}`,
+                metadata: {}
+            })
+
+            if (diagnosis.highlightedAreas && diagnosis.highlightedAreas.length > 0) {
+                cells.push({
+                    id: `cell_${Date.now()}_3`,
+                    type: 'markdown',
+                    content: `## Affected Areas\n\n${diagnosis.highlightedAreas.map((area: any, i: number) => `### Area ${i + 1}\n- **Label:** ${area.label || 'Unlabeled'}\n- **Severity:** ${area.severity || 'Unknown'}\n- **Location:** ${area.center ? `Center (${(area.center.x * 100).toFixed(1)}%, ${(area.center.y * 100).toFixed(1)}%)` : 'Not specified'}`).join('\n\n')}`,
+                    metadata: {}
+                })
+            }
+        } else if (mode === 'crop' && produceResults) {
+            // CROP SCAN CELLS
+            const grading = produceResults.grading || {}
+            const shelfLife = produceResults.shelf_life_estimate || produceResults.shelf_life || produceResults.estimates?.shelf_life_days || 'Unknown'
+            const consumability = produceResults.consumability_status || 'Unknown'
+            const qualityScore = produceResults.overall_quality_score || 0
+            
+            cells.push({
+                id: `cell_${Date.now()}_1`,
+                type: 'markdown',
+                content: `# ${produceResults.variety?.name || produceResults.produceType || 'Produce'} Quality Report\n\n**Scan ID:** ${scanId}  \n**Date:** ${scanDate}  \n**Variety:** ${produceResults.variety?.name || 'Unknown'}  \n**Scientific Name:** ${produceResults.variety?.scientific_name || 'N/A'}\n\n## 🎯 Consumability Status\n\n**${consumability}**\n\n${qualityScore < 40 ? '❌ **Do Not Consume** - Severely degraded, discard immediately' : qualityScore < 60 ? '⚠️ **Poor Quality** - Use immediately, cook thoroughly' : qualityScore < 80 ? '✅ **Consume Soon** - Acceptable quality, use within 1-2 days' : '✅ **Good Quality** - Safe to consume, store normally'}\n\n## 📊 Quality Metrics\n\n- **Overall Quality Score:** ${qualityScore}/100\n- **Condition Score:** ${grading.condition_score || qualityScore}/100\n- **Grade (EU):** ${grading.grade_eu || grading.grade || 'N/A'}\n- **Grade (USDA):** ${grading.grade_usda || 'N/A'}\n- **Grading Confidence:** ${grading.grading_confidence || 'N/A'}%\n- **Color Maturity Score:** ${grading.color_maturity_score || 'N/A'}/100\n\n## ⏰ Shelf Life\n\n**Estimated:** ${shelfLife} ${typeof shelfLife === 'number' ? 'days' : ''}\n\n${typeof shelfLife === 'number' && shelfLife === 0 ? '⚠️ Expired - Discard immediately' : typeof shelfLife === 'number' && shelfLife <= 2 ? '⚠️ Use immediately' : typeof shelfLife === 'number' && shelfLife <= 5 ? '📅 Use within this week' : '✅ Good shelf life remaining'}`,
+                metadata: {}
+            })
+
+            if (produceResults.areas && produceResults.areas.length > 0) {
+                cells.push({
+                    id: `cell_${Date.now()}_2`,
+                    type: 'markdown',
+                    content: `## 🔍 Detected Defects (${produceResults.areas.length})\n\n**Primary Defect:** ${grading.primary_defect || 'None'}  \n**Defect Coverage:** ${grading.defect_coverage_percent || 0}% of surface\n\n${produceResults.areas.map((d: any, i: number) => `### Defect #${i + 1}: ${d.defect_type || 'Unknown'}\n\n- **Severity:** ${d.severity || 'Unknown'}\n- **Size:** ${d.size_percent || 0}% of surface area\n- **Confidence:** ${d.confidence || 0}%\n- **Description:** ${d.description || 'No description'}\n${d.inferred_cause ? `- **Likely Cause:** ${d.inferred_cause}` : ''}\n${d.depth_inference ? `- **Depth:** ${d.depth_inference}` : ''}\n${d.impact_on_shelf_life ? `- **Impact on Shelf Life:** ${d.impact_on_shelf_life}` : ''}\n${d.treatment_suggestion ? `- **Treatment:** ${d.treatment_suggestion}` : ''}`).join('\n\n')}`,
+                    metadata: {}
+                })
+            }
+
+            if (produceResults.storage_recommendations && produceResults.storage_recommendations.length > 0) {
+                cells.push({
+                    id: `cell_${Date.now()}_3`,
+                    type: 'markdown',
+                    content: `## 🧊 Storage Recommendations\n\n${produceResults.storage_recommendations.map((r: string, i: number) => `${i + 1}. ${r}`).join('\n')}\n\n## 📝 Additional Notes\n\n${produceResults.handling_tips ? `### Handling Tips\n${produceResults.handling_tips}\n\n` : ''}${produceResults.optimal_storage_temp ? `**Optimal Storage Temperature:** ${produceResults.optimal_storage_temp}\n\n` : ''}${produceResults.notes ? produceResults.notes : 'Store in a cool, dry place away from direct sunlight.'}`,
+                    metadata: {}
+                })
+            }
+        }
+
+        // Generate unique note ID
+        const noteId = `note_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        
+        const notebook = {
+            id: noteId,
+            title: `${scanType} Analysis - ${scanDate}`,
+            cells: cells,
+            metadata: {
+                created: new Date(),
+                modified: new Date(),
+                tags: ['scan-linked', mode],
+                version: '1.0',
+                scanId: scanId,
+                scanType: mode,
+                image: uploadedImage,
+                scanData: scanData
+            }
+        }
+        
+        // Debug: Log what we're saving
+        console.log('📝 Creating note with', cells.length, 'cells')
+        console.log('📝 First cell type:', cells[0]?.type)
+        console.log('📝 Second cell preview:', cells[1]?.content?.substring(0, 150))
+        console.log('📝 Notebook structure:', {
+            title: notebook.title,
+            cellCount: cells.length,
+            cellTypes: cells.map(c => c.type),
+            hasScanData: !!scanData
+        })
+        
+        // Create the complete note directly with all content
+        const newNote: FarmNote = {
+            id: noteId,
+            title: notebook.title,
+            content: JSON.stringify(notebook, null, 2),
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            tags: ['scan-linked', mode],
+            folder: 'reports',
+            isPinned: false,
+            scanId: scanId,
+            metadata: {
+                wordCount: JSON.stringify(notebook).length,
+                lastEditedBy: user?.id || 'guest'
+            }
+        }
+        
+        // Save the note with full content to localStorage
+        saveNote(newNote)
+        // Set as active note
+        setActiveNote(newNote)
+        
+        // Navigate to notes page (it will reload notes from localStorage)
+        router.push('/dashboard/notes')
     }
 
     const handleModeSwitch = (newMode: ScanMode) => {
@@ -520,6 +688,8 @@ export default function UnifiedScanPage() {
                                 result={diagnosis}
                                 actionResult={actionResult}
                                 image={uploadedImage || ''}
+                                scanId={currentScanId || undefined}
+                                onCreateNote={handleCreateNote}
                                 onSymptomClick={(symptom, area) => {
                                     console.log('[Scan Page] Symptom clicked:', symptom)
                                     setChatContext({
@@ -583,6 +753,8 @@ export default function UnifiedScanPage() {
                                 image={uploadedImage}
                                 results={produceResults}
                                 onClose={handleReset}
+                                scanId={currentScanId || undefined}
+                                onCreateNote={handleCreateNote}
                             />
                         </div>
                     )}
@@ -633,3 +805,4 @@ const compressImage = (base64: string, maxWidth = 800): Promise<string> => {
         img.onerror = () => resolve(base64) // Fallback
     })
 }
+

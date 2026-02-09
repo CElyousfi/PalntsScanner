@@ -6,15 +6,21 @@ interface GenerateOptions {
   prompt: string
   currentNotebook?: Notebook
   farmProfile?: any
+  scanData?: any
 }
 
 export async function generateNotebookContent(options: GenerateOptions): Promise<NotebookCell[]> {
-  const { prompt, currentNotebook, farmProfile } = options
+  const { prompt, currentNotebook, farmProfile, scanData } = options
   
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 1500))
   
   const lowerPrompt = prompt.toLowerCase()
+  
+  // Extract scan context if available
+  if (scanData) {
+    return generateScanBasedResponse(prompt, scanData)
+  }
   
   // Extract farm context
   const cropType = farmProfile?.cropType || 'Tomato'
@@ -531,8 +537,167 @@ Would you like me to generate a more specific report? Try asking for:
 - "Growth analysis" - Growth trends and charts
 - "Health status" - Detailed health assessment
 - "Task list" - Daily activities
-- "Risk assessment" - Potential issues`,
+- "Risk assessment" - Potential issues
+
+Markdown Cell`,
       metadata: {}
     }
   ]
+}
+
+// Generate scan-based responses using actual scan data
+function generateScanBasedResponse(prompt: string, scanData: any): NotebookCell[] {
+  const cells: NotebookCell[] = []
+  const lowerPrompt = prompt.toLowerCase()
+  
+  // Determine scan type
+  const isCropScan = scanData.scanType === 'crop'
+  const scanDate = new Date(scanData.timestamp).toLocaleDateString()
+  
+  // Response header
+  cells.push({
+    id: `cell_${Date.now()}_0`,
+    type: 'markdown',
+    content: `# AI Response
+
+I've analyzed your request: "${prompt}"
+
+${isCropScan ? 'For Crop cultivation, I recommend:' : 'For this plant diagnosis, I recommend:'}`,
+    metadata: {}
+  })
+  
+  if (isCropScan && scanData.produceResults) {
+    // Crop scan response
+    const results = scanData.produceResults
+    const produceType = results.produceType || results.variety?.name || 'produce'
+    const qualityScore = results.overall_quality_score || 0
+    const grade = results.grade || 'N/A'
+    const consumability = results.consumability_status || 'Unknown'
+    const defects = results.areas || []
+    
+    cells.push({
+      id: `cell_${Date.now()}_1`,
+      type: 'markdown',
+      content: `## Scan Summary (${scanDate})
+
+**Produce:** ${produceType}  
+**Quality Score:** ${qualityScore}/100  
+**Grade:** ${grade}  
+**Status:** ${consumability}  
+**Defects Found:** ${defects.length}`,
+      metadata: {}
+    })
+    
+    if (lowerPrompt.includes('defect') || lowerPrompt.includes('issue') || lowerPrompt.includes('problem')) {
+      cells.push({
+        id: `cell_${Date.now()}_2`,
+        type: 'markdown',
+        content: `## Detected Issues
+
+${defects.length > 0 ? defects.map((d: any, i: number) => `
+### Defect #${i + 1}: ${d.severity || 'Unknown'} Severity
+- **Type:** ${d.defect_type || 'Unknown'}
+- **Description:** ${d.description || 'No description'}
+- **Size:** ${d.size_percent || 0}% of surface
+- **Confidence:** ${d.confidence || 0}%
+${d.inferred_cause ? `- **Likely Cause:** ${d.inferred_cause}` : ''}
+`).join('\n') : 'No defects detected.'}`,
+        metadata: {}
+      })
+    }
+    
+    if (lowerPrompt.includes('recommend') || lowerPrompt.includes('what') || lowerPrompt.includes('should')) {
+      cells.push({
+        id: `cell_${Date.now()}_3`,
+        type: 'markdown',
+        content: `## Recommendations
+
+Based on the quality score of **${qualityScore}/100** and status **"${consumability}"**:
+
+${qualityScore < 40 ? `
+### ⚠️ Do Not Consume
+1. **Discard immediately** - Quality is too poor for consumption
+2. **Inspect batch** - Check other items from same source
+3. **Review storage** - Ensure proper conditions going forward
+` : qualityScore < 60 ? `
+### ⚠️ Poor Quality
+1. **Use immediately** - Cook thoroughly before consumption
+2. **Cut away defects** - Remove affected areas
+3. **Monitor closely** - Check daily for further deterioration
+` : qualityScore < 80 ? `
+### ✅ Consume Soon
+1. **Use within 1-2 days** - Quality is acceptable but declining
+2. **Store properly** - Refrigerate if applicable
+3. **Inspect before use** - Check for new defects
+` : `
+### ✅ Good Quality
+1. **Safe to consume** - Quality is excellent
+2. **Store normally** - Follow standard storage guidelines
+3. **Use within normal timeframe** - Enjoy fresh
+`}`,
+        metadata: {}
+      })
+    }
+  } else if (scanData.diagnosis) {
+    // Leaf scan response
+    const diagnosis = scanData.diagnosis
+    const cropType = diagnosis.cropType || 'Plant'
+    const severity = diagnosis.severity || 'unknown'
+    const diseases = diagnosis.diseases || []
+    const symptoms = diagnosis.symptoms || []
+    
+    cells.push({
+      id: `cell_${Date.now()}_1`,
+      type: 'markdown',
+      content: `## Diagnosis Summary (${scanDate})
+
+**Crop:** ${cropType}  
+**Severity:** ${severity.toUpperCase()}  
+**Diseases:** ${diseases.length > 0 ? diseases.join(', ') : 'None detected'}  
+**Symptoms:** ${symptoms.length > 0 ? symptoms.length : 0} observed`,
+      metadata: {}
+    })
+    
+    if (lowerPrompt.includes('treat') || lowerPrompt.includes('fix') || lowerPrompt.includes('cure')) {
+      cells.push({
+        id: `cell_${Date.now()}_2`,
+        type: 'markdown',
+        content: `## Treatment Plan
+
+${diagnosis.organicTreatments && diagnosis.organicTreatments.length > 0 ? `
+### Organic Treatments
+${diagnosis.organicTreatments.map((t: string, i: number) => `${i + 1}. ${t}`).join('\n')}
+` : ''}
+
+${diagnosis.chemicalTreatments && diagnosis.chemicalTreatments.length > 0 ? `
+### Chemical Treatments
+${diagnosis.chemicalTreatments.map((t: string, i: number) => `${i + 1}. ${t}`).join('\n')}
+` : ''}
+
+${diagnosis.preventionTips && diagnosis.preventionTips.length > 0 ? `
+### Prevention Tips
+${diagnosis.preventionTips.map((t: string, i: number) => `${i + 1}. ${t}`).join('\n')}
+` : ''}`,
+        metadata: {}
+      })
+    }
+    
+    if (lowerPrompt.includes('symptom') || lowerPrompt.includes('sign') || lowerPrompt.includes('what')) {
+      cells.push({
+        id: `cell_${Date.now()}_3`,
+        type: 'markdown',
+        content: `## Observed Symptoms
+
+${symptoms.length > 0 ? symptoms.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n') : 'No specific symptoms documented.'}
+
+${diagnosis.causes && diagnosis.causes.length > 0 ? `
+### Likely Causes
+${diagnosis.causes.map((c: string, i: number) => `${i + 1}. ${c}`).join('\n')}
+` : ''}`,
+        metadata: {}
+      })
+    }
+  }
+  
+  return cells
 }

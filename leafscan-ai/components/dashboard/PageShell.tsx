@@ -36,13 +36,9 @@ export default function PageShell({ title, badge, children, action, hideControls
                         )}
                     </div>
 
-                    {!hideControls && (
+                    {!hideControls && action && (
                         <div className="flex gap-3 items-center">
                             {action}
-                            <PlantSwitcher />
-                            <button className="w-12 h-12 rounded-xl border border-gray-200 bg-white flex items-center justify-center hover:bg-gray-50 transition-all text-gray-700 shadow-sm">
-                                <MoreHorizontal className="w-6 h-6" />
-                            </button>
                         </div>
                     )}
                 </div>

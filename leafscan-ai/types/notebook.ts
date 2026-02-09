@@ -23,6 +23,10 @@ export interface Notebook {
     modified: Date
     tags: string[]
     version: string
+    scanId?: string
+    scanType?: 'leaf' | 'crop'
+    image?: string
+    scanData?: any
   }
 }
 

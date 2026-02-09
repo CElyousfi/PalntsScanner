@@ -6,7 +6,6 @@ import NotesSidebar from '@/components/notes/NotesSidebar'
 import NotebookEditor from '@/components/notebook/NotebookEditor'
 import AIAssistant from '@/components/notes/AIAssistant'
 import OnboardingTour from '@/components/notes/OnboardingTour'
-import ActivityPanel from '@/components/notes/ActivityPanel'
 import { FileText, Calendar, Tag, MoreVertical, Star, BookOpen } from 'lucide-react'
 import { Notebook, NotebookCell } from '@/types/notebook'
 
@@ -150,9 +149,6 @@ export default function NotesPage() {
                   >
                     <Star className="w-5 h-5" fill={activeNote.isPinned ? 'currentColor' : 'none'} />
                   </button>
-                  <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                    <MoreVertical className="w-5 h-5 text-gray-400" />
-                  </button>
                 </div>
               </div>
             </div>
@@ -166,19 +162,16 @@ export default function NotesPage() {
                 onChange={handleNotebookChange}
               />
             ) : (
-              <div className="flex-1 flex items-center justify-center text-gray-400">
+              <div className="h-full flex items-center justify-center text-gray-400">
                 <div className="text-center">
                   <BookOpen className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg">Select a note to start editing</p>
+                  <p className="text-lg font-medium">Select a note to start editing</p>
                   <p className="text-sm mt-2">Or create a new notebook</p>
                 </div>
               </div>
             )}
           </div>
         </div>
-
-        {/* Activity Panel */}
-        <ActivityPanel />
 
         {/* AI Assistant Sidebar */}
         <AIAssistant />

@@ -1,7 +1,9 @@
 'use client'
 
 import { useAutonomy } from '@/hooks/useAutonomy'
+import { useNotes } from '@/context/NotesContext'
 import DiagnosisReport from '@/components/DiagnosisReport'
+import ProduceReport from '@/components/ProduceReport'
 import { ArrowLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -10,8 +12,14 @@ import { HistoricalAnalysis, updateHistoryEntry } from '@/lib/store'
 export default function HistoryDetailPage({ params }: { params: { id: string } }) {
     const router = useRouter()
     const { system, setChatContext, toggleChat } = useAutonomy()
+    const { createNote } = useNotes()
     const [record, setRecord] = useState<HistoricalAnalysis | null>(null)
     const [loading, setLoading] = useState(true)
+
+    const handleCreateNote = (scanId: string) => {
+        createNote('reports', scanId)
+        router.push('/dashboard/notes')
+    }
 
     useEffect(() => {
         if (system && params.id) {
@@ -66,66 +74,77 @@ export default function HistoryDetailPage({ params }: { params: { id: string } }
                 </div>
             </div>
 
-            {/* Reused Report Component */}
-            <DiagnosisReport
-                result={record.diagnosis}
-                actionResult={record.actionResult || undefined}
-                image={record.image}
-
-                onSymptomClick={(symptom, area) => {
-                    setChatContext({
-                        type: 'diagnosis',
-                        diagnosis: record.diagnosis,
-                        actionResult: record.actionResult || undefined,
-                        initialQuestion: `I am looking at the historical analysis from ${new Date(record.timestamp).toLocaleDateString()}. Can you explain the symptom "${symptom}" located at ${area}?`
-                    })
-                    toggleChat(true)
-                }}
-                onReset={() => router.push('/dashboard/scan')}
-                onStartMonitoring={() => router.push('/dashboard')}
-                onOpenTreatmentPlanner={() => {
-                    // For history, we might just open chat for now or enable planner if read-only
-                    setChatContext({
-                        type: 'diagnosis',
-                        diagnosis: record.diagnosis,
-                        initialQuestion: "Can you generate a treatment plan for this past diagnosis?"
-                    })
-                    toggleChat(true)
-                }}
-                onOpenChat={() => {
-                    setChatContext({
-                        type: 'diagnosis',
-                        diagnosis: record.diagnosis,
-                        actionResult: record.actionResult || undefined,
-                        contextDescription: `Reviewing historical scan from ${new Date(record.timestamp).toLocaleDateString()}`
-                    })
-                    toggleChat(true)
-                }}
-                onVisualGenerated={(prompt, imageUrl) => {
-                    if (record) {
-                        updateHistoryEntry(record.id, (entry) => ({
-                            ...entry,
-                            diagnosis: {
-                                ...entry.diagnosis,
-                                visualGuides: {
-                                    ...(entry.diagnosis.visualGuides || {}),
-                                    [prompt]: imageUrl
+            {/* Reused Report Component - Conditionally render based on scan type */}
+            {record.scanType === 'crop' && record.produceResults ? (
+                <ProduceReport
+                    image={record.image}
+                    results={record.produceResults}
+                    onClose={() => router.push('/dashboard/history')}
+                    scanId={record.id}
+                    onCreateNote={handleCreateNote}
+                />
+            ) : (
+                <DiagnosisReport
+                    result={record.diagnosis}
+                    actionResult={record.actionResult || undefined}
+                    image={record.image}
+                    scanId={record.id}
+                    onCreateNote={handleCreateNote}
+                    onSymptomClick={(symptom, area) => {
+                        setChatContext({
+                            type: 'diagnosis',
+                            diagnosis: record.diagnosis,
+                            actionResult: record.actionResult || undefined,
+                            initialQuestion: `I am looking at the historical analysis from ${new Date(record.timestamp).toLocaleDateString()}. Can you explain the symptom "${symptom}" located at ${area}?`
+                        })
+                        toggleChat(true)
+                    }}
+                    onReset={() => router.push('/dashboard/scan')}
+                    onStartMonitoring={() => router.push('/dashboard')}
+                    onOpenTreatmentPlanner={() => {
+                        // For history, we might just open chat for now or enable planner if read-only
+                        setChatContext({
+                            type: 'diagnosis',
+                            diagnosis: record.diagnosis,
+                            initialQuestion: "Can you generate a treatment plan for this past diagnosis?"
+                        })
+                        toggleChat(true)
+                    }}
+                    onOpenChat={() => {
+                        setChatContext({
+                            type: 'diagnosis',
+                            diagnosis: record.diagnosis,
+                            actionResult: record.actionResult || undefined,
+                            contextDescription: `Reviewing historical scan from ${new Date(record.timestamp).toLocaleDateString()}`
+                        })
+                        toggleChat(true)
+                    }}
+                    onVisualGenerated={(prompt, imageUrl) => {
+                        if (record) {
+                            updateHistoryEntry(record.id, (entry) => ({
+                                ...entry,
+                                diagnosis: {
+                                    ...entry.diagnosis,
+                                    visualGuides: {
+                                        ...(entry.diagnosis.visualGuides || {}),
+                                        [prompt]: imageUrl
+                                    }
                                 }
-                            }
-                        }))
-                        console.log('[History Page] Cached visual guide.')
-                    }
-                }}
-                onExploreAction={(actionContext) => {
-                    setChatContext({
-                        type: 'diagnosis',
-                        diagnosis: record.diagnosis,
-                        actionResult: record.actionResult || undefined,
-                        initialQuestion: `Reviewing past action: "${actionContext}". Was this the right choice?`
-                    })
-                    toggleChat(true)
-                }}
-            />
+                            }))
+                            console.log('[History Page] Cached visual guide.')
+                        }
+                    }}
+                    onExploreAction={(actionContext) => {
+                        setChatContext({
+                            type: 'diagnosis',
+                            diagnosis: record.diagnosis,
+                            actionResult: record.actionResult || undefined,
+                            initialQuestion: `Reviewing past action: "${actionContext}". Was this the right choice?`
+                        })
+                        toggleChat(true)
+                    }}
+                />
+            )}
         </div>
     )
 }

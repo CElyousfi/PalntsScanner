@@ -91,13 +91,6 @@ const AppShell = memo(function AppShell({ children }: { children: React.ReactNod
                     {/* Bottom Actions */}
                     <div className="flex flex-col gap-4 items-center">
                         <button
-                            onClick={handleTogglePublicMode}
-                            className={`p-3 rounded-xl transition-all ${isPublicMode ? 'bg-apeel-green text-white' : 'text-gray-400 hover:bg-gray-100'
-                                }`}
-                        >
-                            {isPublicMode ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
-                        </button>
-                        <button
                             onClick={handleLogout}
                             className="p-3 rounded-xl text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all"
                         >

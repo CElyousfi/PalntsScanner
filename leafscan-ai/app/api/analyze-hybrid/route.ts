@@ -204,31 +204,66 @@ Analyze now. Precision Mode: ON.`
       }
 
       if (rawData.highlightedAreas && Array.isArray(rawData.highlightedAreas)) {
-        rawData.highlightedAreas = rawData.highlightedAreas.map((area: any) => {
-          // Map Surgical Precision Dots (center_x/y/radius)
-          if (typeof area.center_x === 'number' && typeof area.center_y === 'number') {
-            area.center = { x: area.center_x, y: area.center_y }
-            delete area.center_x
-            delete area.center_y
-          }
-
-          if (typeof area.radius === 'number') {
-            // Ensure radius is reasonable (clamp if needed)
-            area.radius = area.radius
-          }
-
-          // Legacy Bbox Support (if model outputs it too)
-          if (Array.isArray(area.bbox) && area.bbox.length === 4) {
-            const [y1, x1, y2, x2] = area.bbox;
-            area.bbox = {
-              x: x1 / 1000,
-              y: y1 / 1000,
-              width: (x2 - x1) / 1000,
-              height: (y2 - y1) / 1000
+        rawData.highlightedAreas = rawData.highlightedAreas
+          .map((area: any) => {
+            // Map Surgical Precision Dots (center_x/y/radius)
+            if (typeof area.center_x === 'number' && typeof area.center_y === 'number') {
+              area.center = { x: area.center_x, y: area.center_y }
+              delete area.center_x
+              delete area.center_y
             }
-          }
-          return area;
-        });
+
+            if (typeof area.radius === 'number') {
+              // Ensure radius is reasonable (clamp if needed)
+              area.radius = area.radius
+            }
+
+            // Legacy Bbox Support (if model outputs it too)
+            if (Array.isArray(area.bbox) && area.bbox.length === 4) {
+              const [y1, x1, y2, x2] = area.bbox;
+              area.bbox = {
+                x: x1 / 1000,
+                y: y1 / 1000,
+                width: (x2 - x1) / 1000,
+                height: (y2 - y1) / 1000
+              }
+            }
+            return area;
+          })
+          .filter((area: any) => {
+            // Validate coordinates are within reasonable bounds (0-1 range)
+            if (area.center) {
+              const { x, y } = area.center;
+              const radius = area.radius || 0.05;
+              
+              // Filter out areas that are:
+              // 1. Outside the image bounds (0-1)
+              // 2. Too close to edges (likely empty areas)
+              // 3. Have invalid coordinates
+              if (x < 0.1 || x > 0.9 || y < 0.1 || y > 0.9) {
+                return false; // Too close to edges
+              }
+              if (x < 0 || x > 1 || y < 0 || y > 1) {
+                return false; // Outside bounds
+              }
+              if (radius > 0.3) {
+                return false; // Unreasonably large
+              }
+            }
+            
+            // Validate bbox coordinates
+            if (area.bbox && typeof area.bbox === 'object') {
+              const { x, y, width, height } = area.bbox;
+              if (x < 0 || y < 0 || x + width > 1 || y + height > 1) {
+                return false; // Outside bounds
+              }
+              if (width > 0.5 || height > 0.5) {
+                return false; // Unreasonably large
+              }
+            }
+            
+            return true; // Valid area
+          });
       }
 
       diagnosisData = rawData;

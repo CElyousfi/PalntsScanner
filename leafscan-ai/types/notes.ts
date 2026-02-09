@@ -7,6 +7,7 @@ export interface FarmNote {
   tags: string[]
   folder?: string
   isPinned: boolean
+  scanId?: string // Link to specific scan from history
   metadata: {
     wordCount: number
     lastEditedBy: string

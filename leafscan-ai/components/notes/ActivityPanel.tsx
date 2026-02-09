@@ -42,7 +42,7 @@ export default function ActivityPanel() {
   ).slice(0, 3)
 
   return (
-    <div className="w-80 border-l border-gray-200 bg-gray-50 overflow-y-auto">
+    <div className="w-64 flex-shrink-0 border-l border-gray-200 bg-gray-50 overflow-y-auto">
       <div className="p-4">
         {/* Activity Section */}
         <div className="mb-6">

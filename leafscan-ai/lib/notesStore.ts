@@ -66,16 +66,17 @@ function getDefaultFolders(): NoteFolder[] {
   ]
 }
 
-export function createNewNote(userId: string, folder?: string): FarmNote {
+export function createNewNote(userId: string, folder?: string, scanId?: string): FarmNote {
   return {
     id: `note_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    title: 'Untitled Note',
-    content: '# New Farm Report\n\nStart writing your report here...',
+    title: scanId ? 'Scan Analysis Note' : 'Untitled Note',
+    content: scanId ? `# Scan Analysis\n\n**Scan ID:** ${scanId}\n\nAdd your notes and analysis here...` : '# New Farm Report\n\nStart writing your report here...',
     createdAt: Date.now(),
     updatedAt: Date.now(),
-    tags: [],
+    tags: scanId ? ['scan-linked'] : [],
     folder: folder || 'general',
     isPinned: false,
+    scanId: scanId,
     metadata: {
       wordCount: 0,
       lastEditedBy: userId

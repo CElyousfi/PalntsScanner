@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Scale, Ruler, Eye, TrendingUp, AlertCircle, CheckCircle2, Apple, Info, BookOpen, Play, Maximize2, Clock, Refrigerator, ChefHat, Search, ExternalLink } from 'lucide-react'
+import { Scale, Ruler, Eye, TrendingUp, AlertCircle, CheckCircle2, Apple, Info, BookOpen, Play, Maximize2, Clock, Refrigerator, ChefHat, Search, ExternalLink, FileText, Plus } from 'lucide-react'
 import ImageLightbox from '@/components/ui/ImageLightbox'
 import { useRouter } from 'next/navigation'
 
@@ -7,9 +7,11 @@ interface ProduceReportProps {
   image: string
   results: any
   onClose?: () => void
+  scanId?: string
+  onCreateNote?: (scanId: string) => void
 }
 
-export default function ProduceReport({ image, results, onClose }: ProduceReportProps) {
+export default function ProduceReport({ image, results, onClose, scanId, onCreateNote }: ProduceReportProps) {
   const [selectedDefect, setSelectedDefect] = useState<number | null>(null)
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 })
   const [showTutorial, setShowTutorial] = useState(false)
@@ -160,6 +162,20 @@ export default function ProduceReport({ image, results, onClose }: ProduceReport
         </div>
       )}
 
+      {/* Action Buttons */}
+      {onCreateNote && scanId && (
+        <div className="flex justify-end">
+          <button 
+            onClick={() => onCreateNote(scanId)} 
+            className="btn-secondary py-3 px-6 text-sm flex items-center gap-2 border-blue-500/30 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-md"
+          >
+            <Plus className="w-4 h-4" />
+            <FileText className="w-4 h-4" />
+            <span>Create Note for this Scan</span>
+          </button>
+        </div>
+      )}
+
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left: Image with Defect Highlights */}
@@ -246,167 +262,147 @@ export default function ProduceReport({ image, results, onClose }: ProduceReport
 
         {/* Right: Grading Details */}
         <div className="space-y-6">
-          {/* Overall Grading */}
+          {/* Consumability Status */}
           <div className="bg-white rounded-[2rem] p-6 shadow-lg border border-gray-100">
             <h3 className="font-serif font-bold text-xl mb-4 flex items-center gap-2">
               <CheckCircle2 className="w-6 h-6 text-apeel-green" />
-              Overall Grading
+              Consumability Assessment
             </h3>
 
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                <div className="text-xs text-gray-500 font-bold uppercase mb-1">Quality Score</div>
-                <div className="text-3xl font-bold text-apeel-green">{results.overall_quality_score}/100</div>
-              </div>
-              <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                <div className="text-xs text-gray-500 font-bold uppercase mb-1">Confidence</div>
-                <div className="text-3xl font-bold text-gray-900">{results.grading.grading_confidence}%</div>
-              </div>
-              <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                <div className="text-xs text-gray-500 font-bold uppercase mb-1 flex items-center gap-1">
-                  <Scale className="w-3 h-3" /> Est. Weight
-                </div>
-                <div className="text-2xl font-bold text-gray-900">
-                  {results.estimates?.weight_g || results.grading.estimated_weight_g}g
-                </div>
-              </div>
-              <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                <div className="text-xs text-gray-500 font-bold uppercase mb-1 flex items-center gap-1">
-                  <Ruler className="w-3 h-3" /> Diameter
-                </div>
-                <div className="text-2xl font-bold text-gray-900">
-                  {results.estimates?.diameter_mm || results.grading.estimated_diameter_mm}mm
-                </div>
-              </div>
-              {results.estimates?.volume_cm3 && (
-                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                  <div className="text-xs text-gray-500 font-bold uppercase mb-1">Volume</div>
-                  <div className="text-2xl font-bold text-gray-900">{results.estimates.volume_cm3}cm³</div>
-                </div>
-              )}
-              {results.estimates?.size_class && (
-                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                  <div className="text-xs text-gray-500 font-bold uppercase mb-1">Size Class</div>
-                  <div className="text-2xl font-bold text-gray-900">{results.estimates.size_class}</div>
-                </div>
-              )}
+            <div className="grid grid-cols-1 gap-4 mb-4">
+              {(() => {
+                const score = results.overall_quality_score
+                let status = ''
+                let icon = null
+                let description = ''
+                let bgClass = ''
+                
+                if (score >= 80) {
+                  status = '✓ Safe to Eat'
+                  description = 'Excellent quality - consume normally'
+                  bgClass = 'bg-gradient-to-br from-apeel-green to-green-600 border-green-200'
+                } else if (score >= 60) {
+                  status = '⚠ Consume Soon'
+                  description = 'Acceptable quality - use within 1-2 days'
+                  bgClass = 'bg-gradient-to-br from-amber-500 to-orange-600 border-orange-200'
+                } else if (score >= 40) {
+                  status = '⚠ Poor Quality'
+                  description = 'Significant defects - use immediately or discard'
+                  bgClass = 'bg-gradient-to-br from-orange-600 to-red-500 border-orange-300'
+                } else {
+                  status = '✗ Do Not Consume'
+                  description = 'Severely degraded - discard immediately'
+                  bgClass = 'bg-gradient-to-br from-red-600 to-rose-700 border-red-300'
+                }
+                
+                return (
+                  <div className={`rounded-2xl p-6 border shadow-md ${bgClass}`}>
+                    <div className="text-xs text-white/80 font-bold uppercase mb-3 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4" />
+                      Consumability Status
+                    </div>
+                    <div className="text-4xl font-bold text-white mb-3">
+                      {status}
+                    </div>
+                    <div className="text-sm text-white/90 mb-3">
+                      {description}
+                    </div>
+                    <div className="text-xs text-white/70 border-t border-white/20 pt-3 flex items-center justify-between">
+                      <span>Condition Score: {score}/100</span>
+                      <span>Confidence: {results.grading.grading_confidence}%</span>
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
 
             {/* Estimated Shelf Life */}
-            {(results.shelf_life || results.estimates?.shelf_life_days || results.shelf_life_estimate) && (
-              <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-2xl border border-blue-200">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <Clock className="w-5 h-5 text-blue-600" />
+            {(results.shelf_life !== undefined || results.estimates?.shelf_life_days !== undefined || results.shelf_life_estimate !== undefined) && (() => {
+              const shelfLife = results.shelf_life ?? results.estimates?.shelf_life_days ?? results.shelf_life_estimate ?? 0
+              const isExpired = shelfLife === 0
+              
+              return (
+                <div className={`mt-4 p-4 rounded-2xl border ${
+                  isExpired 
+                    ? 'bg-gradient-to-r from-red-50 to-rose-50 border-red-200' 
+                    : 'bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${isExpired ? 'bg-red-100' : 'bg-blue-100'}`}>
+                      <Clock className={`w-5 h-5 ${isExpired ? 'text-red-600' : 'text-blue-600'}`} />
+                    </div>
+                    <div className="flex-1">
+                      <div className={`text-xs font-bold uppercase mb-0.5 ${isExpired ? 'text-red-600' : 'text-blue-600'}`}>
+                        {isExpired ? 'Shelf Life Status' : 'Estimated Shelf Life'}
+                      </div>
+                      <div className={`text-2xl font-bold ${isExpired ? 'text-red-900' : 'text-blue-900'}`}>
+                        {isExpired ? 'Not Suitable for Consumption' : `${shelfLife} days`}
+                      </div>
+                      <div className={`text-xs mt-1 ${isExpired ? 'text-red-700' : 'text-blue-700'}`}>
+                        {isExpired ? 'Discard immediately - severely degraded' : 'Based on current condition and grade'}
+                      </div>
+                    </div>
                   </div>
+                </div>
+              )
+            })()}
+
+            {/* Primary Defect */}
+            <div className="mt-6 p-4 bg-blue-50 rounded-2xl border border-blue-100">
+              <div className="flex items-start gap-3">
+                <Eye className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <div className="font-bold text-blue-900 mb-1">Primary Defect</div>
+                  <div className="text-sm text-blue-700">
+                    {results.grading.primary_defect} • {results.grading.defect_coverage_percent}% coverage
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Color Maturity */}
+            <div className="mt-6 p-4 bg-green-50 rounded-2xl border border-green-100">
+              <div className="flex items-start gap-3">
+                <TrendingUp className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <div className="font-bold text-green-900 mb-1">Color Maturity</div>
+                  <div className="text-sm text-green-700">
+                    Score: {results.grading.color_maturity_score}/100 • Optimal for {results.variety.name}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Ripeness Assessment */}
+            {results.assessment && (
+              <div className="mt-6 p-4 bg-amber-50 rounded-2xl border border-amber-100">
+                <div className="flex items-start gap-3">
+                  <TrendingUp className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
                   <div className="flex-1">
-                    <div className="text-xs text-blue-600 font-bold uppercase mb-0.5">Estimated Shelf Life</div>
-                    <div className="text-2xl font-bold text-blue-900">
-                      {results.shelf_life || results.estimates?.shelf_life_days || results.shelf_life_estimate} days
+                    <div className="font-bold text-amber-900 mb-1">Ripeness Assessment</div>
+                    <div className="text-sm text-amber-700">
+                      {results.assessment.ripeness_stage} • Score: {results.assessment.ripeness_score}/100
                     </div>
-                    <div className="text-xs text-blue-700 mt-1">
-                      Based on current condition and grade
-                    </div>
+                    {results.assessment.texture_analysis && (
+                      <div className="text-xs text-amber-600 mt-1 italic">
+                        {results.assessment.texture_analysis}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
             )}
 
-            <div className="space-y-3">
-              <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
-                <div className="flex items-start gap-3">
-                  <Eye className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <div className="font-bold text-blue-900 mb-1">Primary Defect</div>
-                    <div className="text-sm text-blue-700">
-                      {results.grading.primary_defect} • {results.grading.defect_coverage_percent}% coverage
-                    </div>
-                  </div>
-                </div>
+            {/* Sustainability Impact */}
+            {results.sustainability_impact && (
+              <div className={`mt-6 p-4 rounded-2xl border ${results.sustainability_impact.includes('Low') ? 'bg-green-50 border-green-100' :
+                results.sustainability_impact.includes('Medium') ? 'bg-yellow-50 border-yellow-100' :
+                  'bg-red-50 border-red-100'
+                }`}>
+                <div className="font-bold text-gray-900 mb-1">Sustainability Impact</div>
+                <div className="text-sm text-gray-700">{results.sustainability_impact}</div>
               </div>
-
-              <div className="p-4 bg-green-50 rounded-2xl border border-green-100">
-                <div className="flex items-start gap-3">
-                  <TrendingUp className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <div className="font-bold text-green-900 mb-1">Color Maturity</div>
-                    <div className="text-sm text-green-700">
-                      Score: {results.grading.color_maturity_score}/100 • Optimal for {results.variety.name}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Ripeness Assessment */}
-              {results.assessment && (
-                <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
-                  <div className="flex items-start gap-3">
-                    <TrendingUp className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                    <div className="flex-1">
-                      <div className="font-bold text-amber-900 mb-1">Ripeness Assessment</div>
-                      <div className="text-sm text-amber-700">
-                        {results.assessment.ripeness_stage} • Score: {results.assessment.ripeness_score}/100
-                      </div>
-                      {results.assessment.texture_analysis && (
-                        <div className="text-xs text-amber-600 mt-1 italic">
-                          {results.assessment.texture_analysis}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Firmness & Uniformity */}
-              <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-xs text-gray-500 font-bold uppercase mb-1">Firmness</div>
-                    <div className="text-sm font-semibold text-gray-900">
-                      {results.assessment?.firmness_estimate || results.grading.firmness_assessment || 'N/A'}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-500 font-bold uppercase mb-1">Uniformity</div>
-                    <div className="text-sm font-semibold text-gray-900">
-                      {results.grading.uniformity_score || 'N/A'}/100
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Multi-Standard Grading */}
-              {(results.grading.grade_eu || results.grading.grade_usda) && (
-                <div className="p-4 bg-purple-50 rounded-2xl border border-purple-100">
-                  <div className="font-bold text-purple-900 mb-2">Multi-Standard Grading</div>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    {results.grading.grade_eu && (
-                      <div>
-                        <span className="text-purple-600 font-medium">EU:</span>
-                        <span className="ml-2 font-bold text-purple-900">{results.grading.grade_eu}</span>
-                      </div>
-                    )}
-                    {results.grading.grade_usda && (
-                      <div>
-                        <span className="text-purple-600 font-medium">USDA:</span>
-                        <span className="ml-2 font-bold text-purple-900">{results.grading.grade_usda}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Sustainability Impact */}
-              {results.sustainability_impact && (
-                <div className={`p-4 rounded-2xl border ${results.sustainability_impact.includes('Low') ? 'bg-green-50 border-green-100' :
-                  results.sustainability_impact.includes('Medium') ? 'bg-yellow-50 border-yellow-100' :
-                    'bg-red-50 border-red-100'
-                  }`}>
-                  <div className="font-bold text-gray-900 mb-1">Sustainability Impact</div>
-                  <div className="text-sm text-gray-700">{results.sustainability_impact}</div>
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
           {/* Action Buttons - Explore More */}
@@ -477,81 +473,116 @@ export default function ProduceReport({ image, results, onClose }: ProduceReport
             </div>
           </div>
 
-          {/* Detected Defects */}
-          <div className="bg-white rounded-[2rem] p-6 shadow-lg border border-gray-100">
-            <h3 className="font-serif font-bold text-xl mb-4 flex items-center gap-2">
-              <AlertCircle className="w-6 h-6 text-orange-600" />
-              Detected Defects ({results.areas?.length || 0})
-            </h3>
-
-            <div className="space-y-3 max-h-[400px] overflow-y-auto">
-              {results.areas?.map((area: any) => (
-                <div
-                  key={area.id}
-                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${selectedDefect === area.id
-                    ? 'border-apeel-green bg-green-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  onClick={() => setSelectedDefect(selectedDefect === area.id ? null : area.id)}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-gray-900">#{area.id}</span>
-                      <span className="text-sm text-gray-600">{area.description}</span>
-                    </div>
-                    <span className={`text-xs font-bold px-2 py-1 rounded-lg border ${getSeverityColor(area.severity)}`}>
-                      {area.severity}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-xs mb-2">
-                    <div>
-                      <span className="text-gray-500">Type:</span>
-                      <span className="ml-1 font-medium">{area.defect_type}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Confidence:</span>
-                      <span className="ml-1 font-medium">{area.confidence}%</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Size:</span>
-                      <span className="ml-1 font-medium">{area.size_percent}%</span>
-                    </div>
-                  </div>
-                  {area.inferred_cause && (
-                    <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded-lg mb-1">
-                      <span className="font-bold">Cause:</span> {area.inferred_cause}
-                    </div>
-                  )}
-                  {(area.depth_inference || area.detection_method) && (
-                    <div className="flex items-center gap-2 text-xs flex-wrap">
-                      {area.depth_inference && (
-                        <>
-                          <span className="text-gray-500">Depth:</span>
-                          <span className={`font-medium px-2 py-0.5 rounded ${area.depth_inference === 'Surface only' ? 'bg-green-100 text-green-700' :
-                            area.depth_inference === 'Subsurface' ? 'bg-yellow-100 text-yellow-700' :
-                              'bg-red-100 text-red-700'
-                            }`}>
-                            {area.depth_inference}
-                          </span>
-                        </>
-                      )}
-                      {area.impact_on_shelf_life && (
-                        <>
-                          <span className="text-gray-500 ml-2">Impact:</span>
-                          <span className="font-medium">{area.impact_on_shelf_life}</span>
-                        </>
-                      )}
-                      {area.detection_method && (
-                        <>
-                          <span className="text-gray-500 ml-2">Method:</span>
-                          <span className="font-medium text-purple-600">{area.detection_method}</span>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
+          {/* Detected Defects - Horizontal Scroll */}
+          <div className="bg-white rounded-[2rem] p-8 shadow-lg border border-gray-100">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-serif font-bold text-2xl flex items-center gap-3">
+                <AlertCircle className="w-7 h-7 text-orange-600" />
+                Detected Defects ({results.areas?.length || 0})
+              </h3>
+              <div className="text-sm text-gray-500 flex items-center gap-2">
+                <span>Scroll →</span>
+              </div>
             </div>
+
+            {/* Horizontal Scrolling Container */}
+            <div className="overflow-x-auto pb-4 -mx-8 px-8">
+              <div className="flex gap-6 min-w-max">
+                {results.areas?.map((area: any, index: number) => (
+                  <div
+                    key={area.id}
+                    className={`w-[420px] flex-shrink-0 rounded-2xl border-2 transition-all ${selectedDefect === area.id
+                      ? 'border-apeel-green bg-green-50 shadow-xl'
+                      : 'border-gray-200 hover:border-gray-300 hover:shadow-lg bg-white'
+                      }`}
+                  >
+                    {/* Card Header with Severity Badge */}
+                    <div className={`p-6 rounded-t-2xl ${area.severity === 'Critical' ? 'bg-gradient-to-br from-red-50 to-red-100' :
+                      area.severity === 'Severe' ? 'bg-gradient-to-br from-orange-50 to-orange-100' :
+                        area.severity === 'Moderate' ? 'bg-gradient-to-br from-yellow-50 to-yellow-100' :
+                          'bg-gradient-to-br from-blue-50 to-blue-100'
+                      }`}>
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-full bg-white shadow-md flex items-center justify-center">
+                            <span className="text-xl font-bold text-gray-900">#{index + 1}</span>
+                          </div>
+                          <div>
+                            <div className={`text-xs font-bold px-3 py-1.5 rounded-full inline-block ${getSeverityColor(area.severity)}`}>
+                              {area.severity}
+                            </div>
+                            <div className="text-xs text-gray-600 mt-1 font-medium">
+                              Severity {area.severity_score || 'N/A'}/10
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <h4 className="text-lg font-bold text-gray-900 leading-tight">
+                        {area.description}
+                      </h4>
+                    </div>
+
+                    {/* Card Body */}
+                    <div className="p-6 space-y-4">
+                      {/* Stats Grid */}
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="text-center p-3 bg-gray-50 rounded-xl">
+                          <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Type</div>
+                          <div className="text-sm font-bold text-gray-900">{area.defect_type}</div>
+                        </div>
+                        <div className="text-center p-3 bg-gray-50 rounded-xl">
+                          <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Confidence</div>
+                          <div className="text-sm font-bold text-emerald-600">{area.confidence}%</div>
+                        </div>
+                        <div className="text-center p-3 bg-gray-50 rounded-xl">
+                          <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Size</div>
+                          <div className="text-sm font-bold text-orange-600">{area.size_percent}%</div>
+                        </div>
+                      </div>
+
+                      {/* Cause Section */}
+                      {area.inferred_cause && (
+                        <div className="p-4 bg-blue-50 border-l-4 border-blue-400 rounded-lg">
+                          <div className="text-xs font-bold text-blue-900 uppercase mb-1.5">Inferred Cause</div>
+                          <div className="text-sm text-blue-800 leading-relaxed">{area.inferred_cause}</div>
+                        </div>
+                      )}
+
+                      {/* Depth & Impact Tags */}
+                      <div className="flex flex-wrap gap-2">
+                        {area.depth_inference && (
+                          <div className={`flex-1 text-center px-3 py-2 rounded-lg font-medium text-xs ${area.depth_inference === 'Surface only' ? 'bg-green-100 text-green-800 border border-green-300' :
+                            area.depth_inference === 'Subsurface' ? 'bg-yellow-100 text-yellow-800 border border-yellow-300' :
+                              'bg-red-100 text-red-800 border border-red-300'
+                            }`}>
+                            <div className="font-bold uppercase text-[10px] mb-0.5">Depth</div>
+                            {area.depth_inference}
+                          </div>
+                        )}
+                        {area.impact_on_shelf_life && (
+                          <div className="flex-1 text-center px-3 py-2 rounded-lg bg-purple-100 text-purple-800 border border-purple-300 font-medium text-xs">
+                            <div className="font-bold uppercase text-[10px] mb-0.5">Impact</div>
+                            {area.impact_on_shelf_life}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Scroll Indicator */}
+            {results.areas && results.areas.length > 1 && (
+              <div className="flex justify-center gap-2 mt-4">
+                {results.areas.map((_: any, idx: number) => (
+                  <div
+                    key={idx}
+                    className="w-2 h-2 rounded-full bg-gray-300"
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

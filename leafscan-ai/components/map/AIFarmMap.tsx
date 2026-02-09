@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from 'react'
 import mapboxgl from 'mapbox-gl'
 import 'mapbox-gl/dist/mapbox-gl.css'
-import { 
-  MessageSquare, Send, Mic, Download, Layers, 
+import {
+  MessageSquare, Send, Mic, Download, Layers,
   MapPin, Maximize2, Minimize2, Loader2, AlertCircle,
   TrendingUp, Leaf, Cloud, Droplets
 } from 'lucide-react'
@@ -75,18 +75,20 @@ export default function AIFarmMap() {
 
     map.current.on('load', () => {
       setMapLoaded(true)
-      
+
       // Add navigation controls
       map.current?.addControl(new mapboxgl.NavigationControl(), 'top-left')
-      
+
       // Add scale
       map.current?.addControl(new mapboxgl.ScaleControl(), 'bottom-left')
-      
+
       // Track bounds changes
       map.current?.on('moveend', () => {
         if (map.current) {
           const bounds = map.current.getBounds()
-          setCurrentBounds(bounds.toArray())
+          if (bounds) {
+            setCurrentBounds(bounds.toArray())
+          }
         }
       })
     })
@@ -113,7 +115,7 @@ export default function AIFarmMap() {
 
     try {
       // Get current map bounds and center
-      const bounds = map.current?.getBounds().toArray()
+      const bounds = map.current?.getBounds()?.toArray()
       const center = map.current?.getCenter()
       const zoom = map.current?.getZoom()
 
@@ -295,10 +297,9 @@ export default function AIFarmMap() {
       <div ref={mapContainer} className="absolute inset-0" />
 
       {/* AI Assistant Chat Panel */}
-      <div 
-        className={`absolute top-4 right-4 bg-white rounded-lg shadow-2xl transition-all duration-300 ${
-          isChatExpanded ? 'w-96 h-[600px]' : 'w-96 h-16'
-        }`}
+      <div
+        className={`absolute top-4 right-4 bg-white rounded-lg shadow-2xl transition-all duration-300 ${isChatExpanded ? 'w-96 h-[600px]' : 'w-96 h-16'
+          }`}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
@@ -329,11 +330,10 @@ export default function AIFarmMap() {
                   className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-lg p-3 ${
-                      message.type === 'user'
-                        ? 'bg-apeel-green text-white'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}
+                    className={`max-w-[80%] rounded-lg p-3 ${message.type === 'user'
+                      ? 'bg-apeel-green text-white'
+                      : 'bg-gray-100 text-gray-800'
+                      }`}
                   >
                     <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                     <p className="text-xs opacity-70 mt-1">

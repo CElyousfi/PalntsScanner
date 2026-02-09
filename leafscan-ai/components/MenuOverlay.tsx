@@ -1,7 +1,9 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, ArrowRight, Github, Twitter, Linkedin } from 'lucide-react'
+import { X, ArrowRight, Github, Twitter, Linkedin, LogIn, UserPlus } from 'lucide-react'
+import { useAuth } from '@/context/AuthContext'
+import { useRouter } from 'next/navigation'
 
 interface MenuOverlayProps {
     isOpen: boolean
@@ -16,6 +18,14 @@ const menuItems = [
 ]
 
 export default function MenuOverlay({ isOpen, onClose }: MenuOverlayProps) {
+    const { user } = useAuth()
+    const router = useRouter()
+
+    const handleAuthNavigation = (path: string) => {
+        onClose()
+        router.push(path)
+    }
+
     return (
         <AnimatePresence>
             {isOpen && (
@@ -87,24 +97,68 @@ export default function MenuOverlay({ isOpen, onClose }: MenuOverlayProps) {
                             </button>
                         </div>
 
-                        <div className="mt-auto">
-                            <h3 className="text-apeel-green font-bold text-xl mb-4 tracking-tighter">[ GET IN TOUCH ]</h3>
-                            <p className="text-apeel-black/80 mb-8 text-lg leading-relaxed">
-                                Interested in integrating LeafScan technology into your agricultural workflow?
-                            </p>
-                            <a href="mailto:hello@leafscan.ai" className="text-3xl font-bold text-apeel-green hover:text-black transition-colors underline decoration-apeel-green/30 underline-offset-8">
-                                hello@leafscan.ai
-                            </a>
+                        <div className="mt-auto space-y-8">
+                            {/* Guest Mode Indicator & Auth Buttons */}
+                            {user?.isGuest && (
+                                <div className="bg-apeel-green/10 border border-apeel-green/20 rounded-2xl p-6">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-3 h-3 bg-apeel-orange rounded-full animate-pulse"></div>
+                                        <span className="text-apeel-green font-bold text-sm tracking-wide">GUEST MODE</span>
+                                    </div>
+                                    <p className="text-apeel-black/70 text-sm mb-6 leading-relaxed">
+                                        You're using LeafScan as a guest. Your data is saved locally. Sign up to sync across devices!
+                                    </p>
+                                    <div className="flex flex-col gap-3">
+                                        <button
+                                            onClick={() => handleAuthNavigation('/auth/signup')}
+                                            className="flex items-center justify-center gap-2 bg-apeel-green text-white rounded-full px-6 py-3 font-bold text-sm tracking-wide hover:bg-apeel-green/90 transition-all"
+                                        >
+                                            <UserPlus size={18} />
+                                            CREATE ACCOUNT
+                                        </button>
+                                        <button
+                                            onClick={() => handleAuthNavigation('/auth/login')}
+                                            className="flex items-center justify-center gap-2 bg-transparent border-2 border-apeel-green text-apeel-green rounded-full px-6 py-3 font-bold text-sm tracking-wide hover:bg-apeel-green hover:text-white transition-all"
+                                        >
+                                            <LogIn size={18} />
+                                            SIGN IN
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {/* Authenticated User Display */}
+                            {user && !user.isGuest && (
+                                <div className="bg-apeel-green/10 border border-apeel-green/20 rounded-2xl p-6">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                        <span className="text-apeel-green font-bold text-sm tracking-wide">SIGNED IN</span>
+                                    </div>
+                                    <p className="text-apeel-black/70 text-sm">
+                                        {user.email}
+                                    </p>
+                                </div>
+                            )}
 
-                            <div className="flex space-x-4 mt-12">
-                                <div className="p-3 border border-apeel-green/20 rounded-full text-apeel-green hover:bg-apeel-green hover:text-white transition-all cursor-pointer">
-                                    <Github size={20} />
-                                </div>
-                                <div className="p-3 border border-apeel-green/20 rounded-full text-apeel-green hover:bg-apeel-green hover:text-white transition-all cursor-pointer">
-                                    <Twitter size={20} />
-                                </div>
-                                <div className="p-3 border border-apeel-green/20 rounded-full text-apeel-green hover:bg-apeel-green hover:text-white transition-all cursor-pointer">
-                                    <Linkedin size={20} />
+                            <div>
+                                <h3 className="text-apeel-green font-bold text-xl mb-4 tracking-tighter">[ GET IN TOUCH ]</h3>
+                                <p className="text-apeel-black/80 mb-8 text-lg leading-relaxed">
+                                    Interested in integrating LeafScan technology into your agricultural workflow?
+                                </p>
+                                <a href="mailto:hello@leafscan.ai" className="text-3xl font-bold text-apeel-green hover:text-black transition-colors underline decoration-apeel-green/30 underline-offset-8">
+                                    hello@leafscan.ai
+                                </a>
+
+                                <div className="flex space-x-4 mt-12">
+                                    <div className="p-3 border border-apeel-green/20 rounded-full text-apeel-green hover:bg-apeel-green hover:text-white transition-all cursor-pointer">
+                                        <Github size={20} />
+                                    </div>
+                                    <div className="p-3 border border-apeel-green/20 rounded-full text-apeel-green hover:bg-apeel-green hover:text-white transition-all cursor-pointer">
+                                        <Twitter size={20} />
+                                    </div>
+                                    <div className="p-3 border border-apeel-green/20 rounded-full text-apeel-green hover:bg-apeel-green hover:text-white transition-all cursor-pointer">
+                                        <Linkedin size={20} />
+                                    </div>
                                 </div>
                             </div>
                         </div>

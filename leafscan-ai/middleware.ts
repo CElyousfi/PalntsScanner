@@ -13,7 +13,7 @@ export async function middleware(req: NextRequest) {
 
   console.log('[Middleware]', {
     pathname: req.nextUrl.pathname,
-    user: user?.email || 'none',
+    user: user?.email || 'guest',
     error: error?.message || 'none',
     cookies: req.cookies.getAll().map(c => c.name)
   });
@@ -21,21 +21,15 @@ export async function middleware(req: NextRequest) {
   const isAuthenticated = !!user;
   const { pathname } = req.nextUrl;
 
-  // Root
+  // Root - Always redirect to dashboard (guest mode enabled)
   if (pathname === "/") {
-    return NextResponse.redirect(
-      new URL(isAuthenticated ? "/dashboard" : "/marketing", req.url)
-    );
+    return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
-  // Protect dashboard
-  if (pathname.startsWith("/dashboard") && !isAuthenticated) {
-    const redirectUrl = new URL("/auth/login", req.url);
-    redirectUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(redirectUrl);
-  }
+  // Allow guest access to dashboard - No authentication required anymore
+  // Users can access full app as guests
 
-  // Block auth pages for logged-in users
+  // Redirect auth pages for logged-in users to dashboard
   if (isAuthenticated && pathname.startsWith("/auth")) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }

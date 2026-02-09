@@ -26,9 +26,9 @@ export default function AIAssistant() {
   const { activeProfile, system } = useAutonomy()
   const [isLoading, setIsLoading] = useState(false)
   const [lastAdded, setLastAdded] = useState<number>(0)
-  
+
   // Get scan data if note is linked to a scan
-  const scanData = activeNote?.scanId 
+  const scanData = activeNote?.scanId
     ? system?.history?.find(h => h.id === activeNote.scanId)
     : null
 
@@ -40,7 +40,7 @@ export default function AIAssistant() {
     try {
       // Parse current notebook
       const currentNotebook = parseNotebook(activeNote.content)
-      
+
       // Generate new cells
       const newCells = await generateNotebookContent({
         prompt,
@@ -71,10 +71,10 @@ export default function AIAssistant() {
           scanData: currentNotebook?.metadata?.scanData
         }
       }
-      
+
       updateNote(activeNote.id, { content: JSON.stringify(updatedNotebook, null, 2) })
       setLastAdded(newCells.length)
-      
+
       // Clear success message after 3s
       setTimeout(() => setLastAdded(0), 3000)
 
@@ -86,32 +86,32 @@ export default function AIAssistant() {
   }
 
   // Dynamic questions based on scan type
-  const quickActions = scanData 
-    ? (scanData.scanType === 'crop' 
+  const quickActions = scanData
+    ? (scanData.scanType === 'crop'
       ? [
-          { icon: FileText, label: 'What produce is this?', prompt: 'what type of vegetable is present in the picture' },
-          { icon: AlertTriangle, label: 'List all defects', prompt: 'what are all the defects and issues found' },
-          { icon: CheckCircle2, label: 'Is it safe to eat?', prompt: 'is this produce safe to consume' },
-          { icon: TrendingUp, label: 'Quality assessment', prompt: 'provide detailed quality assessment' },
-          { icon: Leaf, label: 'Storage tips', prompt: 'how should I store this produce' },
-          { icon: Calendar, label: 'Shelf life estimate', prompt: 'how long will this last' }
-        ]
-      : [
-          { icon: AlertTriangle, label: 'What disease is this?', prompt: 'what disease or problem was detected' },
-          { icon: FileText, label: 'Treatment options', prompt: 'what are the treatment options' },
-          { icon: Leaf, label: 'Symptoms explained', prompt: 'explain all the symptoms observed' },
-          { icon: CheckCircle2, label: 'Prevention tips', prompt: 'how can I prevent this in the future' },
-          { icon: TrendingUp, label: 'Severity analysis', prompt: 'how severe is this problem' },
-          { icon: Calendar, label: 'Action timeline', prompt: 'what should I do and when' }
-        ])
-    : [
-        { icon: TrendingUp, label: 'Growth Analysis', prompt: 'Generate growth analysis with charts' },
-        { icon: BarChart3, label: 'Full Report', prompt: 'Create full report with all charts and analysis' },
-        { icon: AlertTriangle, label: 'Risk Assessment', prompt: 'Generate risk assessment report' },
-        { icon: Calendar, label: 'Task List', prompt: 'Create daily task list' },
-        { icon: FileText, label: 'Health Status', prompt: 'Generate health status report' },
-        { icon: Leaf, label: 'Recommendations', prompt: 'Generate AI recommendations' }
+        { icon: FileText, label: 'What produce is this?', prompt: 'what type of vegetable is present in the picture' },
+        { icon: AlertTriangle, label: 'List all defects', prompt: 'what are all the defects and issues found' },
+        { icon: CheckCircle2, label: 'Is it safe to eat?', prompt: 'is this produce safe to consume' },
+        { icon: TrendingUp, label: 'Quality assessment', prompt: 'provide detailed quality assessment' },
+        { icon: Leaf, label: 'Storage tips', prompt: 'how should I store this produce' },
+        { icon: Calendar, label: 'Shelf life estimate', prompt: 'how long will this last' }
       ]
+      : [
+        { icon: AlertTriangle, label: 'What disease is this?', prompt: 'what disease or problem was detected' },
+        { icon: FileText, label: 'Treatment options', prompt: 'what are the treatment options' },
+        { icon: Leaf, label: 'Symptoms explained', prompt: 'explain all the symptoms observed' },
+        { icon: CheckCircle2, label: 'Prevention tips', prompt: 'how can I prevent this in the future' },
+        { icon: TrendingUp, label: 'Severity analysis', prompt: 'how severe is this problem' },
+        { icon: Calendar, label: 'Action timeline', prompt: 'what should I do and when' }
+      ])
+    : [
+      { icon: TrendingUp, label: 'Growth Analysis', prompt: 'Generate growth analysis with charts' },
+      { icon: BarChart3, label: 'Full Report', prompt: 'Create full report with all charts and analysis' },
+      { icon: AlertTriangle, label: 'Risk Assessment', prompt: 'Generate risk assessment report' },
+      { icon: Calendar, label: 'Task List', prompt: 'Create daily task list' },
+      { icon: FileText, label: 'Health Status', prompt: 'Generate health status report' },
+      { icon: Leaf, label: 'Recommendations', prompt: 'Generate AI recommendations' }
+    ]
 
   if (!isAIAssistantOpen) {
     return (
@@ -128,20 +128,20 @@ export default function AIAssistant() {
     <div className="w-80 flex-shrink-0 bg-white border-l border-gray-100/50 shadow-2xl shadow-black/5 flex flex-col h-full font-sans">
 
       {/* Header */}
-      <div className="p-5 border-b border-gray-100 bg-white">
+      <div className="p-6 border-b border-gray-100/50 bg-white/80 backdrop-blur-sm">
         <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-emerald-50 rounded-xl">
-              <Sparkles className="w-5 h-5 text-emerald-600" />
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-apeel-green/10 rounded-xl">
+              <Sparkles className="w-5 h-5 text-apeel-green" />
             </div>
             <div>
-              <h3 className="font-bold text-gray-900 text-lg leading-tight">Add Cells</h3>
-              <p className="text-xs text-gray-500 font-medium">Click to append content</p>
+              <h3 className="font-serif font-bold text-apeel-green text-xl leading-tight">Add Cells</h3>
+              <p className="text-xs text-gray-400 font-medium">AI-Powered Content</p>
             </div>
           </div>
           <button
             onClick={toggleAIAssistant}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400 hover:text-gray-600"
+            className="p-2 hover:bg-gray-50 rounded-full transition-colors text-gray-300 hover:text-gray-500"
           >
             <X className="w-5 h-5" />
           </button>
@@ -150,9 +150,11 @@ export default function AIAssistant() {
 
       {/* Success Toast */}
       {lastAdded > 0 && (
-        <div className="mx-4 mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-          <span className="text-sm text-emerald-800 font-medium">
+        <div className="mx-4 mt-4 p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl flex items-center gap-3 shadow-sm">
+          <div className="p-1 bg-emerald-100 rounded-full">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+          </div>
+          <span className="text-sm text-emerald-800 font-bold">
             Added {lastAdded} cell{lastAdded !== 1 ? 's' : ''} to notebook
           </span>
         </div>
@@ -160,10 +162,10 @@ export default function AIAssistant() {
 
       {/* Context Info */}
       {scanData && (
-        <div className="mx-4 mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex items-center gap-2 text-xs text-blue-800">
+        <div className="mx-4 mt-4 p-4 bg-blue-50/50 border border-blue-100 rounded-2xl">
+          <div className="flex items-center gap-2 text-xs text-blue-800 uppercase tracking-wider font-bold">
             <FileText className="w-3.5 h-3.5" />
-            <span className="font-semibold">
+            <span>
               {scanData.scanType === 'crop' ? 'Crop Scan' : 'Leaf Scan'} Linked
             </span>
           </div>
@@ -171,27 +173,29 @@ export default function AIAssistant() {
       )}
 
       {/* Add Cells Panel */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
         <div className="space-y-3">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
-            {scanData ? 'Available Templates' : 'Quick Actions'}
+          <p className="px-1 text-xs font-bold text-gray-300 uppercase tracking-widest mb-4">
+            {scanData ? 'Smart Templates' : 'Quick Actions'}
           </p>
-          
+
           {quickActions.map((action, idx) => (
             <button
               key={idx}
               onClick={() => handleAddCells(action.prompt)}
               disabled={isLoading || !activeNote}
-              className="w-full flex items-center gap-3 p-3.5 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border border-emerald-200 rounded-xl text-left transition-all hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed group"
+              className="w-full flex items-center gap-4 p-4 bg-white border border-gray-100/80 hover:border-apeel-green/30 rounded-2xl text-left transition-all hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed group"
             >
-              <action.icon className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-              <span className="text-sm font-semibold text-gray-700 group-hover:text-gray-900 flex-1">
+              <div className="p-2.5 bg-gray-50 rounded-xl group-hover:bg-apeel-green/5 transition-colors">
+                <action.icon className="w-5 h-5 text-gray-400 group-hover:text-apeel-green flex-shrink-0 transition-colors" />
+              </div>
+              <span className="text-sm font-bold text-gray-600 group-hover:text-apeel-green flex-1 transition-colors">
                 {action.label}
               </span>
               {isLoading ? (
-                <Loader2 className="w-4 h-4 text-emerald-600 animate-spin" />
+                <Loader2 className="w-4 h-4 text-apeel-green animate-spin" />
               ) : (
-                <ArrowRight className="w-4 h-4 text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <ArrowRight className="w-4 h-4 text-apeel-green opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
               )}
             </button>
           ))}

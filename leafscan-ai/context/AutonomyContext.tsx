@@ -62,29 +62,36 @@ export function AutonomyProvider({ children }: { children: ReactNode }) {
         console.log('[AutonomyContext] 🔄 Loading system state...')
         
         try {
-            // Step 1: Try to load from Supabase first (if available)
             let state = null
-            try {
-                console.log('[AutonomyContext] Checking Supabase database...')
-                state = await getSystemStateFromDatabase(user.id)
-            } catch (supabaseError) {
-                console.log('[AutonomyContext] Supabase not available, using localStorage only')
-                state = null
-            }
             
-            if (!state) {
-                // Step 2: No Supabase data, try localStorage
-                console.log('[AutonomyContext] No Supabase data, checking localStorage...')
+            // Guest users: Use localStorage only, skip Supabase
+            if (user.isGuest) {
+                console.log('[AutonomyContext] 🎭 Guest mode: Using localStorage only')
                 state = getSystemState()
+            } else {
+                // Authenticated users: Try Supabase first, then localStorage
+                try {
+                    console.log('[AutonomyContext] Checking Supabase database...')
+                    state = await getSystemStateFromDatabase(user.id)
+                } catch (supabaseError) {
+                    console.log('[AutonomyContext] Supabase not available, using localStorage only')
+                    state = null
+                }
                 
-                if (state && state.userId === user.id) {
-                    // Step 3: Try to migrate from localStorage to Supabase (optional)
-                    console.log('[AutonomyContext] 📦 Found localStorage data')
-                    try {
-                        await migrateFromLocalStorage(user.id)
-                        console.log('[AutonomyContext] ✅ Migration successful!')
-                    } catch (migrationError) {
-                        console.log('[AutonomyContext] Migration skipped (Supabase tables may not exist yet)')
+                if (!state) {
+                    // Step 2: No Supabase data, try localStorage
+                    console.log('[AutonomyContext] No Supabase data, checking localStorage...')
+                    state = getSystemState()
+                    
+                    if (state && state.userId === user.id) {
+                        // Step 3: Try to migrate from localStorage to Supabase (optional)
+                        console.log('[AutonomyContext] 📦 Found localStorage data')
+                        try {
+                            await migrateFromLocalStorage(user.id)
+                            console.log('[AutonomyContext] ✅ Migration successful!')
+                        } catch (migrationError) {
+                            console.log('[AutonomyContext] Migration skipped (Supabase tables may not exist yet)')
+                        }
                     }
                 }
             }

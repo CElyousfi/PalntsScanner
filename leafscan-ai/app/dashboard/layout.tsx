@@ -11,28 +11,33 @@ import { ThemeProvider } from '@/context/ThemeContext'
 import { ExchangeProvider } from '@/context/ExchangeContext'
 import { KnowledgeProvider } from '@/context/KnowledgeContext'
 import { NotesProvider } from '@/context/NotesContext'
+import { TutorialProvider } from '@/context/TutorialContext'
+import TutorialOverlay from '@/components/tutorial/TutorialOverlay'
 
 const DashboardLayout = memo(function DashboardLayout({ children }: { children: React.ReactNode }) {
     return (
         <AuthGuard>
             <DashboardPreloader />
-            <AutonomyProvider>
-                <PublicAccessProvider>
-                    <ThemeProvider>
-                        <ExchangeProvider>
-                            <KnowledgeProvider>
-                                <NotesProvider>
-                                    <IncidentProvider>
-                                        <AppShell>
-                                            {children}
-                                        </AppShell>
-                                    </IncidentProvider>
-                                </NotesProvider>
-                            </KnowledgeProvider>
-                        </ExchangeProvider>
-                    </ThemeProvider>
-                </PublicAccessProvider>
-            </AutonomyProvider>
+            <TutorialProvider>
+                <TutorialOverlay />
+                <AutonomyProvider>
+                    <PublicAccessProvider>
+                        <ThemeProvider>
+                            <ExchangeProvider>
+                                <KnowledgeProvider>
+                                    <NotesProvider>
+                                        <IncidentProvider>
+                                            <AppShell>
+                                                {children}
+                                            </AppShell>
+                                        </IncidentProvider>
+                                    </NotesProvider>
+                                </KnowledgeProvider>
+                            </ExchangeProvider>
+                        </ThemeProvider>
+                    </PublicAccessProvider>
+                </AutonomyProvider>
+            </TutorialProvider>
         </AuthGuard>
     )
 })

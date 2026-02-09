@@ -2,7 +2,15 @@
 
 import { Node, mergeAttributes } from '@tiptap/core'
 import { ReactNodeViewRenderer, NodeViewWrapper } from '@tiptap/react'
-import { Leaf, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
+import { Stethoscope, Activity, AlertCircle, Leaf, CheckCircle, XCircle, AlertTriangle } from 'lucide-react'
+
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    diagnosisBlock: {
+      insertDiagnosis: () => ReturnType,
+    }
+  }
+}
 
 // Diagnosis Block Component
 const DiagnosisBlockComponent = ({ node, updateAttributes }: any) => {
@@ -92,16 +100,15 @@ const DiagnosisBlockComponent = ({ node, updateAttributes }: any) => {
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-sm font-medium text-gray-700">Severity:</span>
-            <span className={`px-2 py-1 rounded text-xs font-medium ${
-              diagnosisData.severity === 'High' ? 'bg-red-100 text-red-800' :
+            <span className={`px-2 py-1 rounded text-xs font-medium ${diagnosisData.severity === 'High' ? 'bg-red-100 text-red-800' :
               diagnosisData.severity === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-              'bg-green-100 text-green-800'
-            }`}>
+                'bg-green-100 text-green-800'
+              }`}>
               {diagnosisData.severity}
             </span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
+            <div
               className="bg-apeel-green h-2 rounded-full transition-all"
               style={{ width: `${diagnosisData.confidence}%` }}
             />
@@ -160,14 +167,14 @@ export const DiagnosisBlock = Node.create({
     return {
       insertDiagnosis:
         () =>
-        ({ commands }: any) => {
-          return commands.insertContent({
-            type: this.name,
-            attrs: {
-              data: null,
-            },
-          })
-        },
+          ({ commands }: any) => {
+            return commands.insertContent({
+              type: this.name,
+              attrs: {
+                data: null,
+              },
+            })
+          },
     }
   },
 })

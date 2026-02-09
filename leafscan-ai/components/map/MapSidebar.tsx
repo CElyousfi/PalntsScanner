@@ -1,5 +1,18 @@
 import React from 'react'
-import { Sprout, Droplets, Tractor, Calendar, ArrowRight, Layers, Ruler, Map as MapIcon, ChevronRight } from 'lucide-react'
+import {
+    Sprout, Droplets, Tractor, Calendar, ArrowRight, Layers,
+    Ruler, Map as MapIcon, ChevronRight, Wind, CloudRain,
+    Thermometer, AlertTriangle, Activity, Zap, MousePointerClick
+} from 'lucide-react'
+
+// Mock Weather Data (In a real app, this would come from an API)
+const WEATHER_CURRENT = {
+    temp: 24,
+    condition: 'Partly Cloudy',
+    humidity: 65,
+    wind: 12,
+    precip: 0
+}
 
 interface MapSidebarProps {
     data?: {
@@ -13,143 +26,144 @@ interface MapSidebarProps {
 
 export default function MapSidebar({ data }: MapSidebarProps) {
     if (!data) return (
-        <div className="w-80 h-full bg-white border-l border-gray-200 flex flex-col items-center justify-center text-gray-400 p-8 text-center">
-            <MapIcon className="w-12 h-12 mb-4 opacity-20" />
-            <p className="text-sm">Select an area or ask the AI to analyze field boundaries.</p>
+        <div className="w-80 h-full bg-white/90 backdrop-blur-md border-l border-white/20 flex flex-col items-center justify-center text-gray-400 p-8 text-center shadow-2xl">
+            <div className="p-4 bg-gray-50 rounded-full mb-4 animate-pulse">
+                <MapIcon className="w-8 h-8 opacity-20" />
+            </div>
+            <p className="text-sm font-medium">Select a field to view details</p>
         </div>
     )
 
     return (
-        <div className="w-80 h-full bg-white border-l border-gray-200 flex flex-col overflow-y-auto">
-            {/* Header / Back Link */}
-            <div className="p-4 border-b border-gray-100">
-                <button className="flex items-center gap-2 text-sm text-emerald-600 font-medium hover:text-emerald-700 transition-colors">
-                    <ArrowRight className="w-4 h-4 rotate-180" />
-                    Go back to full map view
+        <div className="w-96 h-full bg-white/90 backdrop-blur-xl border-l border-white/20 flex flex-col overflow-y-auto shadow-2xl font-sans">
+            {/* Header */}
+            <div className="p-6 border-b border-gray-100/50 bg-gradient-to-b from-white/50 to-transparent">
+                <button className="flex items-center gap-2 text-xs font-bold text-emerald-600 uppercase tracking-wider mb-4 hover:text-emerald-700 transition-colors">
+                    <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+                    Back to Map
                 </button>
+                <div className="flex items-start justify-between">
+                    <div>
+                        <h1 className="text-2xl font-serif font-bold text-gray-900 leading-tight">Douar Laottam</h1>
+                        <p className="text-sm text-gray-500 font-medium mt-1">Field ID: 243-546 • Active</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-[10px] font-bold border border-green-200 shadow-sm animate-pulse">
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                        LIVE
+                    </div>
+                </div>
             </div>
 
             <div className="p-6 space-y-8">
-                {/* Section 1: Current Capabilities */}
-                <div>
-                    <h3 className="text-sm font-bold text-gray-900 mb-4">Current Capabilities</h3>
+                {/* 1. Live Conditions */}
+                <section>
+                    <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <CloudRain className="w-4 h-4 text-gray-400" />
+                        Current Conditions
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-2xl border border-blue-100 shadow-sm">
+                            <div className="flex items-center gap-2 mb-2 text-blue-600">
+                                <Thermometer className="w-4 h-4" />
+                                <span className="text-xs font-bold uppercase">Temp</span>
+                            </div>
+                            <span className="text-2xl font-bold text-gray-900">{WEATHER_CURRENT.temp}°C</span>
+                        </div>
+                        <div className="p-4 bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-2xl border border-gray-100 shadow-sm">
+                            <div className="flex items-center gap-2 mb-2 text-gray-500">
+                                <Wind className="w-4 h-4" />
+                                <span className="text-xs font-bold uppercase">Wind</span>
+                            </div>
+                            <span className="text-2xl font-bold text-gray-900">{WEATHER_CURRENT.wind} <span className="text-xs font-normal text-gray-500">km/h</span></span>
+                        </div>
+                    </div>
+                </section>
 
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            {/* Crop Card */}
-                            <div className="p-4 rounded-xl border border-gray-100 bg-white shadow-sm flex flex-col gap-1">
-                                <div className="flex items-center justify-between mb-1">
+                {/* 2. Field Analysis */}
+                <section>
+                    <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-gray-400" />
+                        Field Analysis
+                    </h3>
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-emerald-50 rounded-xl">
                                     <Sprout className="w-5 h-5 text-emerald-600" />
-                                    <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-medium">{data.confidence} Confidence</span>
                                 </div>
-                                <span className="text-2xl font-bold text-gray-900">{data.cropType}</span>
-                                <span className="text-xs text-gray-400">Current crop type</span>
+                                <div>
+                                    <span className="block text-sm font-bold text-gray-900">{data.cropType}</span>
+                                    <span className="text-xs text-gray-400">{data.confidence} Confidence</span>
+                                </div>
                             </div>
-
-                            {/* Field Size Card */}
-                            <div className="p-4 rounded-xl border border-gray-100 bg-white shadow-sm flex flex-col gap-1">
-                                <MapIcon className="w-5 h-5 text-gray-400 mb-1" />
-                                <span className="text-2xl font-bold text-gray-900">{data.size}</span>
-                                <span className="text-xs text-gray-400">Field Size</span>
+                            <div className="text-right">
+                                <span className="block text-sm font-bold text-gray-900">{data.size}</span>
+                                <span className="text-xs text-gray-400">Acres</span>
                             </div>
                         </div>
 
-                        {/* Field Meta */}
-                        <div className="grid grid-cols-2 gap-y-2 text-xs text-gray-600">
-                            <div className="flex items-center gap-2">
-                                <Layers className="w-3 h-3 text-gray-400" />
-                                <span>Field ID: 243-546</span>
+                        <div className="h-px bg-gray-50" />
+
+                        <div className="grid grid-cols-2 gap-4 text-xs">
+                            <div>
+                                <span className="text-gray-400 block mb-1">Growth Stage</span>
+                                <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                                    <div className="h-full bg-emerald-500 w-[70%]" />
+                                </div>
+                                <span className="text-emerald-600 font-bold mt-1 block">Vegetative</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <Calendar className="w-3 h-3 text-gray-400" />
-                                <span>Sown: {data.sownDate}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Sprout className="w-3 h-3 text-gray-400" />
-                                <span>Most grown: {data.cropType}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Tractor className="w-3 h-3 text-gray-400" />
-                                <span>Harvest: {data.harvestDate}</span>
+                            <div>
+                                <span className="text-gray-400 block mb-1">Soil Moisture</span>
+                                <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                                    <div className="h-full bg-blue-500 w-[45%]" />
+                                </div>
+                                <span className="text-blue-600 font-bold mt-1 block">Good (45%)</span>
                             </div>
                         </div>
                     </div>
-                </div>
+                </section>
 
-                {/* Section 2: Future Capabilities */}
-                <div>
-                    <h3 className="text-sm font-bold text-gray-900 mb-4">Future Capabilities</h3>
-                    <div className="grid grid-cols-2 gap-4 text-xs">
-                        <div className="flex flex-col gap-1 p-3 bg-gray-50 rounded-lg">
-                            <span className="text-gray-500 flex items-center gap-1">
-                                <Droplets className="w-3 h-3" /> Dist. to water
-                            </span>
-                            <span className="font-bold text-gray-900">0.38 km</span>
-                        </div>
-                        <div className="flex flex-col gap-1 p-3 bg-gray-50 rounded-lg">
-                            <span className="text-gray-500 flex items-center gap-1">
-                                <Ruler className="w-3 h-3" /> Dist. to road
-                            </span>
-                            <span className="font-bold text-gray-900">0.01 km</span>
+                {/* 3. Active Alerts */}
+                <section>
+                    <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-gray-400" />
+                        Active Risks
+                    </h3>
+                    <div className="space-y-3">
+                        <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-3">
+                            <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                            <div>
+                                <h4 className="text-sm font-bold text-amber-900">Moderate Fungal Risk</h4>
+                                <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                                    High humidity levels detected. preventive fungicide recommended within 48h.
+                                </p>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </section>
 
-                {/* Section 3: Agriculture Practices Timeline */}
-                <div>
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-sm font-bold text-gray-900">Agriculture practices</h3>
-                        <button className="text-xs border border-gray-200 rounded-md px-2 py-1 flex items-center gap-1 hover:bg-gray-50">
-                            Last 3 years <ChevronRight className="w-3 h-3" />
+                {/* 4. Quick Actions */}
+                <section>
+                    <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-gray-400" />
+                        Quick Actions
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                        <button className="p-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 flex flex-col items-center gap-2 text-center">
+                            <MousePointerClick className="w-5 h-5" />
+                            Log Scout
+                        </button>
+                        <button className="p-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl text-xs font-bold transition-all hover:shadow-md flex flex-col items-center gap-2 text-center">
+                            <Calendar className="w-5 h-5 text-gray-400" />
+                            Schedule
                         </button>
                     </div>
+                </section>
 
-                    <div className="space-y-6 relative ml-2">
-                        {/* Timeline Labels */}
-                        <div className="flex text-[10px] text-gray-400 justify-between items-center pl-10 pr-2 mb-2">
-                            <span>Jan</span><span>Apr</span><span>Aug</span><span>Dec</span>
-                        </div>
-
-                        {/* Year Rows */}
-                        {[2023, 2024, 2025].map((year, i) => (
-                            <div key={year} className="flex items-center gap-4 relative">
-                                <span className="text-xs font-bold text-gray-500 w-8">{year}</span>
-                                <div className="flex-1 h-3 bg-red-50/50 rounded-full relative overflow-hidden">
-                                    {/* Mock Timeline Events */}
-                                    <div className={`absolute top-0 bottom-0 left-[10%] right-[20%] bg-red-900/10 rounded-full`} />
-
-                                    {/* Icons Overlay */}
-                                    {year === 2024 && (
-                                        <>
-                                            <div className="absolute top-1/2 -translate-y-1/2 left-[15%] w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center text-[8px] z-10 border border-white">
-                                                <Droplets className="w-2 h-2" />
-                                            </div>
-                                            <div className="absolute top-1/2 -translate-y-1/2 left-[40%] w-4 h-4 rounded-full bg-yellow-500 text-white flex items-center justify-center text-[8px] z-10 border border-white">
-                                                <Sprout className="w-2 h-2" />
-                                            </div>
-                                            <div className="absolute top-1/2 -translate-y-1/2 left-[80%] w-4 h-4 rounded-full bg-red-700 text-white flex items-center justify-center text-[8px] z-10 border border-white">
-                                                <Tractor className="w-2 h-2" />
-                                            </div>
-                                        </>
-                                    )}
-                                    {year === 2023 && (
-                                        <div className="absolute top-1/2 -translate-y-1/2 left-[60%] w-4 h-4 rounded-full bg-amber-700 text-white flex items-center justify-center text-[8px] z-10 border border-white">
-                                            <Tractor className="w-2 h-2" />
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-
-                        {/* Legend */}
-                        <div className="flex flex-wrap gap-3 mt-4 text-[10px] text-gray-500">
-                            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-800" /> Crop</div>
-                            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-700" /> Tillage</div>
-                            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-500" /> Sowing</div>
-                            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-900" /> Harvest</div>
-                            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" /> Flooding</div>
-                        </div>
-                    </div>
+                {/* Footer Meta */}
+                <div className="mt-8 pt-6 border-t border-gray-100 flex justify-between text-[10px] text-gray-400 uppercase font-medium tracking-wider">
+                    <span>Last Synced: Just now</span>
+                    <span>Source: Sentinel-2</span>
                 </div>
             </div>
         </div>

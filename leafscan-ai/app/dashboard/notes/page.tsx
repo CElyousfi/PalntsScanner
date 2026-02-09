@@ -5,7 +5,7 @@ import { useNotes } from '@/context/NotesContext'
 import NotesSidebar from '@/components/notes/NotesSidebar'
 import NotebookEditor from '@/components/notebook/NotebookEditor'
 import AIAssistant from '@/components/notes/AIAssistant'
-import OnboardingTour from '@/components/notes/OnboardingTour'
+import ExportMenu from '@/components/ExportMenu'
 import { FileText, Calendar, Tag, MoreVertical, Star, BookOpen } from 'lucide-react'
 import { Notebook, NotebookCell } from '@/types/notebook'
 
@@ -76,7 +76,6 @@ export default function NotesPage() {
 
   return (
     <>
-      <OnboardingTour />
       <div className="flex h-screen overflow-hidden">
         {/* Notes List Sidebar */}
         <NotesSidebar />
@@ -85,7 +84,7 @@ export default function NotesPage() {
         <div className="flex-1 flex flex-col">
           {/* Note Header */}
           {activeNote && (
-            <div className="border-b border-gray-200 bg-white px-6 py-4">
+            <div className="border-b border-gray-100/50 bg-white/80 backdrop-blur-md px-8 py-6 sticky top-0 z-10">
               <div className="flex items-center justify-between">
                 <div className="flex-1">
                   {showTitleEdit ? (
@@ -95,8 +94,9 @@ export default function NotesPage() {
                       onChange={(e) => setTitleInput(e.target.value)}
                       onBlur={handleTitleSave}
                       onKeyPress={(e) => e.key === 'Enter' && handleTitleSave()}
-                      className="text-2xl font-bold border-b-2 border-apeel-green focus:outline-none w-full"
+                      className="text-3xl font-serif font-bold text-apeel-green border-b-2 border-apeel-green/30 focus:outline-none w-full bg-transparent placeholder-apeel-green/30"
                       autoFocus
+                      placeholder="Untitled Note"
                     />
                   ) : (
                     <h1
@@ -104,31 +104,31 @@ export default function NotesPage() {
                         setTitleInput(activeNote.title)
                         setShowTitleEdit(true)
                       }}
-                      className="text-2xl font-bold text-apeel-black cursor-pointer hover:text-apeel-green transition-colors"
+                      className="text-3xl font-serif font-bold text-apeel-green cursor-pointer hover:text-green-700 transition-colors"
                     >
                       {activeNote.title}
                     </h1>
                   )}
 
-                  <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4" />
+                  <div className="flex items-center gap-6 mt-3 text-sm text-gray-500 font-medium">
+                    <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-100">
+                      <Calendar className="w-4 h-4 text-apeel-green/60" />
                       <span>
                         Updated {new Date(activeNote.updatedAt).toLocaleDateString()}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <FileText className="w-4 h-4" />
+                    <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-100">
+                      <FileText className="w-4 h-4 text-apeel-green/60" />
                       <span>{activeNote.metadata.wordCount} words</span>
                     </div>
                     {activeNote.tags.length > 0 && (
-                      <div className="flex items-center gap-1">
-                        <Tag className="w-4 h-4" />
-                        <div className="flex gap-1">
+                      <div className="flex items-center gap-2">
+                        <Tag className="w-4 h-4 text-apeel-green/60" />
+                        <div className="flex gap-2">
                           {activeNote.tags.map((tag, i) => (
                             <span
                               key={i}
-                              className="px-2 py-0.5 bg-gray-100 rounded text-xs"
+                              className="px-3 py-1 bg-apeel-green/5 text-apeel-green rounded-full text-xs font-bold border border-apeel-green/10"
                             >
                               {tag}
                             </span>
@@ -140,11 +140,33 @@ export default function NotesPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {/* Export Button */}
+                  {notebook && (
+                    <ExportMenu
+                      data={{
+                        scanId: activeNote.scanId || activeNote.id,
+                        type: 'Note Export',
+                        timestamp: new Date(activeNote.updatedAt).toISOString(),
+                        summary: {
+                          title: activeNote.title,
+                          wordCount: activeNote.metadata.wordCount,
+                          tags: activeNote.tags,
+                        },
+                        content: notebook.cells.filter(c => c.type === 'markdown').map(c => ({
+                          content: c.content
+                        })),
+                        notebook: notebook
+                      }}
+                      elementId="note-content"
+                      reportType="leaf"
+                    />
+                  )}
+
                   <button
                     onClick={() => updateNote(activeNote.id, { isPinned: !activeNote.isPinned })}
                     className={`p-2 rounded-lg transition-colors ${activeNote.isPinned
-                        ? 'bg-yellow-100 text-yellow-600'
-                        : 'hover:bg-gray-100 text-gray-400'
+                      ? 'bg-yellow-100 text-yellow-600'
+                      : 'hover:bg-gray-100 text-gray-400'
                       }`}
                   >
                     <Star className="w-5 h-5" fill={activeNote.isPinned ? 'currentColor' : 'none'} />
@@ -155,7 +177,7 @@ export default function NotesPage() {
           )}
 
           {/* Notebook Editor */}
-          <div className="flex-1 overflow-y-auto bg-gray-50">
+          <div id="note-content" className="flex-1 overflow-y-auto bg-[#f8f9fa]">
             {notebook ? (
               <NotebookEditor
                 notebook={notebook}
@@ -163,10 +185,12 @@ export default function NotesPage() {
               />
             ) : (
               <div className="h-full flex items-center justify-center text-gray-400">
-                <div className="text-center">
-                  <BookOpen className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg font-medium">Select a note to start editing</p>
-                  <p className="text-sm mt-2">Or create a new notebook</p>
+                <div className="text-center max-w-sm mx-auto p-8 rounded-3xl border-2 border-dashed border-gray-100 bg-white/50">
+                  <div className="w-20 h-20 bg-apeel-green/5 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <BookOpen className="w-8 h-8 text-apeel-green/40" />
+                  </div>
+                  <p className="text-xl font-serif font-bold text-apeel-green/80 mb-2">Select a Note</p>
+                  <p className="text-sm text-gray-500">Choose a note from the sidebar or creates a new one to start documenting your findings.</p>
                 </div>
               </div>
             )}

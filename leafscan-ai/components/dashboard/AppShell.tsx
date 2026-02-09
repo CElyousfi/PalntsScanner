@@ -1,7 +1,6 @@
 'use client'
 
-import { useAuth } from '@/context/AuthContext'
-import { LayoutDashboard, Compass, Sprout, History, Globe, LogOut, Search, Eye, EyeOff, Menu, X, Leaf, FileText } from 'lucide-react'
+import { LayoutDashboard, Compass, Sprout, History, Globe, Search, Eye, EyeOff, Menu, X, Leaf, FileText } from 'lucide-react'
 import { usePathname, useRouter } from 'next/navigation'
 import React, { useState, useMemo, memo, useEffect } from 'react'
 import Link from 'next/link'
@@ -14,16 +13,12 @@ const AIChat = dynamic(() => import('../AIChat'), {
 })
 
 const AppShell = memo(function AppShell({ children }: { children: React.ReactNode }) {
-    const { logout } = useAuth()
     const { isPublicMode, togglePublicMode } = usePublicAccess()
     const router = useRouter()
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const pathname = usePathname()
 
-    const handleLogout = React.useCallback(() => {
-        logout()
-        router.push('/')
-    }, [logout, router])
+
 
     const handleTogglePublicMode = React.useCallback(() => {
         togglePublicMode()
@@ -57,14 +52,14 @@ const AppShell = memo(function AppShell({ children }: { children: React.ReactNod
         <div className="relative min-h-screen overflow-hidden">
             <div className="flex h-screen">
                 {/* Sidebar */}
-                <aside className="hidden md:flex flex-col w-20 bg-white border-r border-gray-200 items-center justify-between py-8 z-20">
+                <aside className="hidden md:flex flex-col w-20 bg-white border-r border-gray-200 items-center py-8 z-20">
                     {/* Brand Icon */}
                     <div className="w-12 h-12 bg-apeel-green rounded-xl flex items-center justify-center shadow-md">
                         <Leaf className="w-6 h-6 text-white" />
                     </div>
 
-                    {/* Navigation Icons */}
-                    <nav className="flex flex-col gap-6 items-center w-full">
+                    {/* Navigation Icons - Vertically Centered */}
+                    <nav className="flex-1 flex flex-col gap-6 items-center justify-center w-full">
                         {menuItems.map((item) => {
                             const isActive = pathname === item.href
                             return (
@@ -73,8 +68,8 @@ const AppShell = memo(function AppShell({ children }: { children: React.ReactNod
                                     href={item.href}
                                     prefetch={true}
                                     className={`relative group p-3 rounded-xl transition-all duration-200 ${isActive
-                                            ? 'bg-apeel-green text-white shadow-md'
-                                            : 'text-gray-400 hover:bg-gray-100 hover:text-apeel-green'
+                                        ? 'bg-apeel-green text-white shadow-md'
+                                        : 'text-gray-400 hover:bg-gray-100 hover:text-apeel-green'
                                         }`}
                                 >
                                     <item.icon className="w-6 h-6" />
@@ -88,15 +83,7 @@ const AppShell = memo(function AppShell({ children }: { children: React.ReactNod
                         })}
                     </nav>
 
-                    {/* Bottom Actions */}
-                    <div className="flex flex-col gap-4 items-center">
-                        <button
-                            onClick={handleLogout}
-                            className="p-3 rounded-xl text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all"
-                        >
-                            <LogOut className="w-5 h-5" />
-                        </button>
-                    </div>
+
                 </aside>
 
                 {/* Mobile Sidebar Overlay */}
@@ -122,8 +109,8 @@ const AppShell = memo(function AppShell({ children }: { children: React.ReactNod
                                         prefetch={true}
                                         onClick={handleCloseSidebar}
                                         className={`flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${pathname === item.href
-                                                ? 'bg-apeel-green text-white'
-                                                : 'text-gray-700 hover:bg-gray-100'
+                                            ? 'bg-apeel-green text-white'
+                                            : 'text-gray-700 hover:bg-gray-100'
                                             }`}
                                     >
                                         <item.icon className="w-5 h-5" />

@@ -5,6 +5,14 @@ import { ReactNodeViewRenderer, NodeViewWrapper } from '@tiptap/react'
 import { BarChart3, TrendingUp, Activity } from 'lucide-react'
 import { LineChart, Line, BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    chartBlock: {
+      insertChart: () => ReturnType,
+    }
+  }
+}
+
 // Chart Block Component
 const ChartBlockComponent = ({ node, updateAttributes }: any) => {
   const chartData = node.attrs.data ? JSON.parse(node.attrs.data) : null
@@ -80,7 +88,7 @@ const ChartBlockComponent = ({ node, updateAttributes }: any) => {
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis dataKey="day" stroke="#6b7280" />
               <YAxis stroke="#6b7280" />
-              <Tooltip 
+              <Tooltip
                 contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
               />
               <Legend />
@@ -89,7 +97,7 @@ const ChartBlockComponent = ({ node, updateAttributes }: any) => {
             </LineChart>
           </ResponsiveContainer>
         )
-      
+
       case 'bar':
         return (
           <ResponsiveContainer width="100%" height={300}>
@@ -97,7 +105,7 @@ const ChartBlockComponent = ({ node, updateAttributes }: any) => {
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis dataKey="day" stroke="#6b7280" />
               <YAxis stroke="#6b7280" />
-              <Tooltip 
+              <Tooltip
                 contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
               />
               <Legend />
@@ -105,7 +113,7 @@ const ChartBlockComponent = ({ node, updateAttributes }: any) => {
             </BarChart>
           </ResponsiveContainer>
         )
-      
+
       case 'area':
         return (
           <ResponsiveContainer width="100%" height={300}>
@@ -113,7 +121,7 @@ const ChartBlockComponent = ({ node, updateAttributes }: any) => {
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis dataKey="day" stroke="#6b7280" />
               <YAxis stroke="#6b7280" />
-              <Tooltip 
+              <Tooltip
                 contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
               />
               <Legend />
@@ -121,7 +129,7 @@ const ChartBlockComponent = ({ node, updateAttributes }: any) => {
             </AreaChart>
           </ResponsiveContainer>
         )
-      
+
       default:
         return (
           <div className="h-64 flex items-center justify-center bg-gray-50 rounded">
@@ -190,14 +198,14 @@ export const ChartBlock = Node.create({
     return {
       insertChart:
         () =>
-        ({ commands }: any) => {
-          return commands.insertContent({
-            type: this.name,
-            attrs: {
-              data: null,
-            },
-          })
-        },
+          ({ commands }: any) => {
+            return commands.insertContent({
+              type: this.name,
+              attrs: {
+                data: null,
+              },
+            })
+          },
     }
   },
 })

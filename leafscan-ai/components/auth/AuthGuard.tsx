@@ -11,18 +11,10 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     const hasRedirected = useRef(false)
 
     useEffect(() => {
-        // Only redirect once and if not already on auth page
-        if (!isLoading && !isAuthenticated && !hasRedirected.current && !pathname.startsWith('/auth')) {
-            console.log('[AuthGuard] User not authenticated, redirecting to login')
-            hasRedirected.current = true
-            router.push('/auth/login')
-        }
-        
-        // Reset redirect flag when user becomes authenticated
-        if (isAuthenticated) {
-            hasRedirected.current = false
-        }
-    }, [isLoading, isAuthenticated, router, pathname])
+        // Guest mode enabled - no redirect needed
+        // Users can access the full app without authentication
+        console.log('[AuthGuard] Guest mode active:', user?.isGuest ? 'Guest User' : user?.email || 'Loading')
+    }, [isLoading, isAuthenticated, router, pathname, user])
 
     // Show loading state
     if (isLoading) {
@@ -36,11 +28,6 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         )
     }
 
-    // If not authenticated, show nothing (will redirect)
-    if (!isAuthenticated) {
-        return null
-    }
-
-    // User is authenticated, show protected content
+    // Allow all users (including guests) to access the app
     return <>{children}</>
 }

@@ -10,6 +10,7 @@ import type { AuthUser } from '@/lib/auth'
 export interface UserProfile extends AuthUser {
     region?: string // Important for crop autonomy (weather)
     role?: 'expert' | 'farmer'
+    isGuest?: boolean // Flag to indicate guest mode
 }
 
 interface AuthContextType {
@@ -28,6 +29,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [isLoading, setIsLoading] = useState(true)
     const router = useRouter()
 
+    // Helper to create or get guest user
+    const createOrGetGuestUser = (): UserProfile => {
+        // Check if guest ID exists in localStorage
+        let guestId = localStorage.getItem('leafscan_guest_id')
+        
+        if (!guestId) {
+            // Generate new guest ID
+            guestId = `guest_${crypto.randomUUID()}`
+            localStorage.setItem('leafscan_guest_id', guestId)
+            console.log('[AuthContext] 🎭 Created new guest user:', guestId)
+        } else {
+            console.log('[AuthContext] 🎭 Using existing guest user:', guestId)
+        }
+
+        const guestProfile: UserProfile = {
+            id: guestId,
+            email: 'guest@leafscan.local',
+            name: 'Guest User',
+            region: 'Casablanca',
+            role: 'farmer',
+            isGuest: true
+        }
+
+        return guestProfile
+    }
+
     useEffect(() => {
         console.log('[AuthContext] Initializing auth check...')
         
@@ -39,7 +66,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const profile: UserProfile = {
                     ...authUser,
                     region: currentUser.user_metadata?.region || 'Casablanca',
-                    role: currentUser.user_metadata?.role || 'farmer'
+                    role: currentUser.user_metadata?.role || 'farmer',
+                    isGuest: false
                 }
                 setUser(profile)
                 console.log('[AuthContext] User profile set:', profile.email)
@@ -53,11 +81,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     initializeSystem(profile.id)
                 }
             } else {
-                console.log('[AuthContext] ❌ No user found')
+                console.log('[AuthContext] ❌ No authenticated user, creating guest user')
+                // Create guest user for full app access
+                const guestProfile = createOrGetGuestUser()
+                setUser(guestProfile)
+                
+                // Initialize system for guest user
+                try {
+                    initializeSystem(guestProfile.id)
+                } catch (e) {
+                    console.error("Guest System Initialization Failed", e)
+                    localStorage.removeItem('leafscan_v2_system')
+                    initializeSystem(guestProfile.id)
+                }
             }
             setIsLoading(false)
         }).catch(error => {
             console.error('[AuthContext] Error getting current user:', error)
+            // Fallback to guest mode on error
+            const guestProfile = createOrGetGuestUser()
+            setUser(guestProfile)
+            initializeSystem(guestProfile.id)
             setIsLoading(false)
         })
 
@@ -68,12 +112,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const profile: UserProfile = {
                     ...authUser,
                     region: 'Casablanca', // Default region
-                    role: 'farmer'
+                    role: 'farmer',
+                    isGuest: false
                 }
                 setUser(profile)
                 initializeSystem(profile.id)
             } else {
-                setUser(null)
+                // User logged out, switch to guest mode
+                const guestProfile = createOrGetGuestUser()
+                setUser(guestProfile)
+                initializeSystem(guestProfile.id)
             }
             setIsLoading(false)
         })
@@ -89,7 +137,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const profile: UserProfile = {
                 ...toAuthUser(authUser),
                 region: authUser.user_metadata?.region || 'Casablanca',
-                role: authUser.user_metadata?.role || 'farmer'
+                role: authUser.user_metadata?.role || 'farmer',
+                isGuest: false
             }
             setUser(profile)
             initializeSystem(profile.id)
@@ -104,7 +153,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const profile: UserProfile = {
                 ...toAuthUser(authUser),
                 region,
-                role: 'farmer'
+                role: 'farmer',
+                isGuest: false
             }
             setUser(profile)
             initializeSystem(profile.id)
@@ -118,9 +168,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch (error) {
             console.error('[AuthContext] Logout error:', error)
         }
-        setUser(null)
+        
+        // Switch to guest mode instead of redirecting to login
         localStorage.removeItem('leafscan_v2_system')
-        router.push('/auth/login')
+        const guestProfile = createOrGetGuestUser()
+        setUser(guestProfile)
+        initializeSystem(guestProfile.id)
+        
+        // Stay on dashboard as guest
+        router.push('/dashboard')
     }
 
     const contextValue = React.useMemo(() => ({

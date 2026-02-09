@@ -13,6 +13,11 @@ export interface AIGuide {
     createdAt: string
     iconType?: 'sparkles' | 'bug' | 'sun' | 'droplets' | 'leaf'
     image?: string
+    // Extended fields for rich content
+    images?: { url: string; title: string }[]
+    keyTakeaways?: string[]
+    sources?: { title: string; url: string; source: string; snippet?: string }[]
+    recommendations?: string[]
 }
 
 interface KnowledgeContextType {

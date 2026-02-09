@@ -32,7 +32,7 @@ export default function ResultsPanel({ results, onSelectResult, selectedResult, 
       initial={{ x: -320, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: -320, opacity: 0 }}
-      className="absolute left-4 top-32 bottom-24 w-80 z-10 bg-white/95 backdrop-blur-lg rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col"
+      className="absolute left-4 top-32 bottom-24 w-80 z-10 bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 overflow-hidden flex flex-col"
     >
       {/* Header */}
       <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-emerald-500 to-green-600">
@@ -62,11 +62,10 @@ export default function ResultsPanel({ results, onSelectResult, selectedResult, 
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
               onClick={() => onSelectResult(result)}
-              className={`w-full text-left p-3 rounded-xl border-2 transition-all hover:shadow-lg group ${
-                isSelected
+              className={`w-full text-left p-3 rounded-xl border-2 transition-all hover:shadow-lg group ${isSelected
                   ? 'border-emerald-500 bg-emerald-50 shadow-md'
                   : `${priorityBorders[result.priority] || 'border-gray-200 bg-white'} hover:border-emerald-300`
-              }`}
+                }`}
             >
               {/* Number Badge & Priority */}
               <div className="flex items-start justify-between mb-2">

@@ -4,6 +4,14 @@ import { Node, mergeAttributes } from '@tiptap/core'
 import { ReactNodeViewRenderer, NodeViewWrapper } from '@tiptap/react'
 import { Cloud, CloudRain, Sun, Wind, Droplets, Thermometer } from 'lucide-react'
 
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    weatherBlock: {
+      insertWeather: () => ReturnType,
+    }
+  }
+}
+
 // Weather Block Component
 const WeatherBlockComponent = ({ node, updateAttributes }: any) => {
   const weatherData = node.attrs.data ? JSON.parse(node.attrs.data) : null
@@ -170,14 +178,14 @@ export const WeatherBlock = Node.create({
     return {
       insertWeather:
         () =>
-        ({ commands }: any) => {
-          return commands.insertContent({
-            type: this.name,
-            attrs: {
-              data: null,
-            },
-          })
-        },
+          ({ commands }: any) => {
+            return commands.insertContent({
+              type: this.name,
+              attrs: {
+                data: null,
+              },
+            })
+          },
     }
   },
 })

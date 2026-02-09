@@ -47,12 +47,18 @@ import {
   Maximize2,
   Grid3x3,
   FileText,
-  Plus
+  Plus,
+  Brain,
+  Settings,
+  Phone,
+  Globe,
+  Star
 } from 'lucide-react'
 import ImageLightbox from '@/components/ui/ImageLightbox'
 import { useRouter } from 'next/navigation'
 import { Search, Refrigerator, ChefHat, BookOpen } from 'lucide-react'
 import IndividualItemCard from './IndividualItemCard'
+import ExportMenu from '@/components/ExportMenu'
 import dynamic from 'next/dynamic'
 
 // Dynamically import map to avoid SSR issues with Leaflet
@@ -208,13 +214,48 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
     }
   }
 
-  const getSeverityIcon = (severity: string) => {
-    switch (severity) {
-      case 'low': return <CheckCircle2 className="w-4 h-4" />
-      case 'medium': return <AlertTriangle className="w-4 h-4" />
+  const getSeverityIcon = (severity?: string) => {
+    switch (severity?.toLowerCase()) {
+      case 'critical': return <AlertOctagon className="w-4 h-4" />
       case 'high': return <AlertOctagon className="w-4 h-4" />
       default: return <AlertCircle className="w-4 h-4" />
     }
+  }
+
+  // Prepare export data
+  const exportData = {
+    scanId: scanId || `leaf-${Date.now()}`,
+    type: 'Leaf Disease Analysis',
+    timestamp: new Date().toISOString(),
+    summary: {
+      qualityScore: result.diseases?.[0]?.confidence || 0,
+      confidence: result.diseases?.[0]?.confidence || 0,
+      severity: (result.diseases?.[0] as any)?.severity || 'Unknown',
+    },
+    cropType: result.cropType,
+    diseases: result.diseases?.map((disease: any) => ({
+      name: disease.name,
+      confidence: disease.confidence,
+      severity: disease.severity,
+      stage: disease.stage,
+      description: disease.description,
+      scientificName: disease.scientificName,
+    })) || [],
+    individual_items: result.individual_items?.map((item: any, idx: number) => ({
+      id: `#${idx + 1}`,
+      label: item.label,
+      description: item.description,
+      grade_or_severity: item.grade_or_severity,
+      defects: item.defects,
+    })) || [],
+    treatments: [
+      ...(result.interventionPlan?.immediate || []),
+      ...(result.interventionPlan?.shortTerm || []),
+      ...(result.interventionPlan?.longTerm || []),
+    ],
+    batch_statistics: result.batch_statistics,
+    overall_scene: result.overall_scene,
+    batch_summary: result.batch_summary,
   }
 
   return (
@@ -231,8 +272,8 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
 
         <div className="flex gap-3">
           {onCreateNote && scanId && (
-            <button 
-              onClick={() => onCreateNote(scanId)} 
+            <button
+              onClick={() => onCreateNote(scanId)}
               className="btn-secondary py-3 px-5 text-sm flex items-center gap-2 border-blue-500/30 text-blue-600 hover:bg-blue-600 hover:text-white transition-all"
             >
               <Plus className="w-4 h-4" />
@@ -252,6 +293,7 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
               <span>Assistant</span>
             </button>
           )}
+          <ExportMenu data={exportData} elementId="diagnosis-report" reportType="leaf" />
           <button onClick={onReset} className="btn-primary py-3 px-6 text-sm flex items-center gap-2 shadow-lg shadow-apeel-green/20">
             <RotateCcw className="w-4 h-4" />
             <span>New Scan</span>
@@ -261,7 +303,8 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
 
       {/* NEW: BATCH / SCENE CONTEXT CARD (Agentic Upgrade) */}
       {(result.overall_scene || result.batch_summary) && (
-        <div className="mb-8 bg-apeel-green/5 border border-apeel-green/10 rounded-[2rem] p-6 lg:p-8 relative overflow-hidden">
+        <div className="mb-8 bg-white/80 backdrop-blur-xl border border-white/40 shadow-xl shadow-apeel-green/10 rounded-[2rem] p-6 lg:p-8 relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-white/10 pointer-events-none" />
           <div className="absolute top-0 right-0 w-64 h-64 bg-apeel-green/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4" />
 
           <div className="flex flex-col gap-6 relative z-10">
@@ -353,7 +396,7 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
         {/* LEFT COLUMN: Visuals (Compact) */}
         <div className="lg:col-span-5 space-y-6">
           {/* Image Analysis Card */}
-          <div className="bg-white rounded-[2rem] p-2 shadow-xl shadow-apeel-green/5 border border-apeel-green/10 relative overflow-hidden group">
+          <div className="bg-white/90 backdrop-blur-xl rounded-[2rem] p-2 shadow-2xl shadow-apeel-green/10 border border-white/40 relative overflow-hidden group">
 
             <ImageLightbox
               isOpen={isLightboxOpen}
@@ -1001,6 +1044,192 @@ export default function DiagnosisReport({ result, actionResult, image, onReset, 
                 </li>
               ))}
             </ul>
+          </div>
+        </div>
+      </div>
+
+      {/* FIND NEARBY SUPPLIERS - AI MAP AGENT */}
+      <div className="mt-10 bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-500 rounded-[2.5rem] p-8 lg:p-10 text-white shadow-2xl shadow-blue-500/30 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl translate-x-24 -translate-y-24" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-cyan-300/10 rounded-full blur-3xl -translate-x-12 translate-y-12" />
+
+        <div className="relative z-10">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-white/20 backdrop-blur-sm rounded-xl">
+                  <MapPin className="w-6 h-6" />
+                </div>
+                <h2 className="text-3xl font-serif font-bold">Find Nearby Suppliers</h2>
+                <span className="px-3 py-1 bg-white/20 backdrop-blur-sm border border-white/30 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <Brain className="w-3 h-3" /> AI Agent
+                </span>
+              </div>
+              <p className="text-white/90 text-sm ml-14">
+                Our AI map agent will locate treatment supplies, equipment, and services near you
+              </p>
+            </div>
+            <a
+              href={`/dashboard/threat-map?search=${encodeURIComponent(`${result.diseases?.[0]?.name || 'plant disease'} treatment supplies near me`)}&mode=supplier`}
+              className="px-8 py-3 bg-white text-blue-600 rounded-xl font-bold text-sm hover:scale-105 transition-all flex items-center gap-2 shadow-lg hover:shadow-xl"
+            >
+              <Navigation className="w-5 h-5" /> Open Smart Map
+            </a>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Fungicide/Pesticide */}
+            <a
+              href={`/dashboard/threat-map?search=${encodeURIComponent(`fungicide pesticide for ${result.diseases?.[0]?.name || 'plant disease'} near me`)}&mode=supplier`}
+              className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 p-5 rounded-xl transition-all group cursor-pointer"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-emerald-500/20 rounded-lg">
+                    <ShoppingBag className="w-5 h-5 text-emerald-200" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-base">Fungicides & Pesticides</h3>
+                    <p className="text-xs text-white/70 mt-0.5">Treatment chemicals</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-5 h-5 text-white/60 group-hover:text-white group-hover:translate-x-1 transition-all" />
+              </div>
+              <p className="text-sm text-white/80">
+                Find stores selling fungicides and pesticides for {result.diseases?.[0]?.name || 'treatment'}
+              </p>
+            </a>
+
+            {/* Organic Supplies */}
+            <a
+              href={`/dashboard/threat-map?search=${encodeURIComponent(`organic farming supply ${result.diseases?.[0]?.name || 'plant'} treatment near me`)}&mode=supplier`}
+              className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 p-5 rounded-xl transition-all group cursor-pointer"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-500/20 rounded-lg">
+                    <Leaf className="w-5 h-5 text-green-200" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-base">Organic Supplies</h3>
+                    <p className="text-xs text-white/70 mt-0.5">Natural treatments</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-5 h-5 text-white/60 group-hover:text-white group-hover:translate-x-1 transition-all" />
+              </div>
+              <p className="text-sm text-white/80">
+                Find organic and natural treatment options nearby
+              </p>
+            </a>
+
+            {/* Agricultural Equipment */}
+            <a
+              href={`/dashboard/threat-map?search=${encodeURIComponent(`agricultural equipment sprayer irrigation near me`)}&mode=supplier`}
+              className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 p-5 rounded-xl transition-all group cursor-pointer"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-orange-500/20 rounded-lg">
+                    <Package className="w-5 h-5 text-orange-200" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-base">Equipment & Tools</h3>
+                    <p className="text-xs text-white/70 mt-0.5">Sprayers, irrigation</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-5 h-5 text-white/60 group-hover:text-white group-hover:translate-x-1 transition-all" />
+              </div>
+              <p className="text-sm text-white/80">
+                Find agricultural equipment dealers nearby
+              </p>
+            </a>
+
+            {/* Plant Nursery */}
+            <a
+              href={`/dashboard/threat-map?search=${encodeURIComponent(`plant nursery ${result.cropType || 'plant'} seedlings near me`)}&mode=supplier`}
+              className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 p-5 rounded-xl transition-all group cursor-pointer"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-pink-500/20 rounded-lg">
+                    <Sprout className="w-5 h-5 text-pink-200" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-base">Plant Nurseries</h3>
+                    <p className="text-xs text-white/70 mt-0.5">Seeds & seedlings</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-5 h-5 text-white/60 group-hover:text-white group-hover:translate-x-1 transition-all" />
+              </div>
+              <p className="text-sm text-white/80">
+                Find nurseries with {result.cropType || 'plant'} varieties nearby
+              </p>
+            </a>
+
+            {/* Agricultural Services */}
+            <a
+              href={`/dashboard/threat-map?search=${encodeURIComponent(`agricultural consultant crop advisor near me`)}&mode=supplier`}
+              className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 p-5 rounded-xl transition-all group cursor-pointer"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-500/20 rounded-lg">
+                    <Settings className="w-5 h-5 text-purple-200" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-base">Expert Services</h3>
+                    <p className="text-xs text-white/70 mt-0.5">Consultants & advisors</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-5 h-5 text-white/60 group-hover:text-white group-hover:translate-x-1 transition-all" />
+              </div>
+              <p className="text-sm text-white/80">
+                Find agricultural consultants and crop advisors
+              </p>
+            </a>
+
+            {/* Emergency Services */}
+            <a
+              href={`/dashboard/threat-map?search=${encodeURIComponent(`emergency agricultural service plant disease treatment 24/7 near me`)}&mode=supplier`}
+              className="bg-white/10 hover:bg-white/20 backdrop-blur-sm border border-white/20 p-5 rounded-xl transition-all group cursor-pointer border-red-300/30"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-red-500/20 rounded-lg">
+                    <Zap className="w-5 h-5 text-red-200" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-base flex items-center gap-2">
+                      Emergency Help
+                      <span className="px-2 py-0.5 bg-red-500/30 text-red-100 text-[10px] font-bold rounded uppercase">24/7</span>
+                    </h3>
+                    <p className="text-xs text-white/70 mt-0.5">Urgent assistance</p>
+                  </div>
+                </div>
+                <ArrowRight className="w-5 h-5 text-white/60 group-hover:text-white group-hover:translate-x-1 transition-all" />
+              </div>
+              <p className="text-sm text-white/80">
+                Find emergency agricultural services available now
+              </p>
+            </a>
+          </div>
+
+          <div className="mt-6 pt-6 border-t border-white/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2 text-white/80 text-sm">
+              <Info className="w-4 h-4" />
+              <span>AI-powered search finds the best options based on your location</span>
+            </div>
+            <div className="flex gap-2">
+              <span className="px-3 py-1.5 bg-white/10 backdrop-blur-sm rounded-lg text-xs font-bold flex items-center gap-1.5">
+                <Phone className="w-3 h-3" /> Contact Info
+              </span>
+              <span className="px-3 py-1.5 bg-white/10 backdrop-blur-sm rounded-lg text-xs font-bold flex items-center gap-1.5">
+                <Globe className="w-3 h-3" /> Directions
+              </span>
+              <span className="px-3 py-1.5 bg-white/10 backdrop-blur-sm rounded-lg text-xs font-bold flex items-center gap-1.5">
+                <Star className="w-3 h-3" /> Reviews
+              </span>
+            </div>
           </div>
         </div>
       </div>

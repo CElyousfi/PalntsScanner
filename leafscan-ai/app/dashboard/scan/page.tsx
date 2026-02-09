@@ -309,9 +309,9 @@ export default function UnifiedScanPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ image: base64 })
             })
-            
+
             const data = await res.json()
-            
+
             if (data.success) {
                 setProduceResults(data.results)
                 setStep('result')
@@ -412,14 +412,26 @@ export default function UnifiedScanPage() {
 
     const handleCreateNote = async (scanId: string) => {
         // Get the complete scan data
-        const scanData = mode === 'leaf' 
+        const scanData = mode === 'leaf'
             ? { diagnosis, actionResult, image: uploadedImage, scanType: 'leaf' }
             : { produceResults, image: uploadedImage, scanType: 'crop' }
-        
+
         // Build comprehensive notebook content
         const scanDate = new Date().toLocaleDateString()
         const scanType = mode === 'leaf' ? 'Leaf Scan' : 'Crop Scan'
-        
+
+        // Generate descriptive title
+        let noteTitle = `${scanType} Analysis - ${scanDate}`
+        if (mode === 'crop' && produceResults) {
+            const varietyName = produceResults.variety?.name || 'Produce'
+            const qualityScore = produceResults.overall_quality_score
+            noteTitle = `${varietyName} - Quality ${qualityScore}/100 - ${scanDate}`
+        } else if (mode === 'leaf' && diagnosis) {
+            const cropType = diagnosis.cropType || 'Plant'
+            const diseaseName = diagnosis.diseases?.[0]?.name || 'Health Check'
+            noteTitle = `${cropType} - ${diseaseName} - ${scanDate}`
+        }
+
         // Generate annotated image and compress it for storage
         let annotatedImage = uploadedImage || ''
         try {
@@ -437,7 +449,7 @@ export default function UnifiedScanPage() {
             // Compress original image as fallback
             annotatedImage = await compressImage(uploadedImage || '', 600)
         }
-        
+
         // Build comprehensive cells based on scan type
         const cells = [
             {
@@ -478,7 +490,7 @@ export default function UnifiedScanPage() {
             const shelfLife = produceResults.shelf_life_estimate || produceResults.shelf_life || produceResults.estimates?.shelf_life_days || 'Unknown'
             const consumability = produceResults.consumability_status || 'Unknown'
             const qualityScore = produceResults.overall_quality_score || 0
-            
+
             cells.push({
                 id: `cell_${Date.now()}_1`,
                 type: 'markdown',
@@ -507,10 +519,10 @@ export default function UnifiedScanPage() {
 
         // Generate unique note ID
         const noteId = `note_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-        
+
         const notebook = {
             id: noteId,
-            title: `${scanType} Analysis - ${scanDate}`,
+            title: noteTitle,
             cells: cells,
             metadata: {
                 created: new Date(),
@@ -523,7 +535,7 @@ export default function UnifiedScanPage() {
                 scanData: scanData
             }
         }
-        
+
         // Debug: Log what we're saving
         console.log('📝 Creating note with', cells.length, 'cells')
         console.log('📝 First cell type:', cells[0]?.type)
@@ -534,7 +546,7 @@ export default function UnifiedScanPage() {
             cellTypes: cells.map(c => c.type),
             hasScanData: !!scanData
         })
-        
+
         // Create the complete note directly with all content
         const newNote: FarmNote = {
             id: noteId,
@@ -551,12 +563,12 @@ export default function UnifiedScanPage() {
                 lastEditedBy: user?.id || 'guest'
             }
         }
-        
+
         // Save the note with full content to localStorage
         saveNote(newNote)
         // Set as active note
         setActiveNote(newNote)
-        
+
         // Navigate to notes page (it will reload notes from localStorage)
         router.push('/dashboard/notes')
     }
@@ -589,8 +601,8 @@ export default function UnifiedScanPage() {
                         <button
                             onClick={() => handleModeSwitch('leaf')}
                             className={`px-6 py-3 rounded-xl font-semibold transition-all ${mode === 'leaf'
-                                    ? 'bg-apeel-green text-white shadow-md'
-                                    : 'text-gray-600 hover:text-gray-900'
+                                ? 'bg-apeel-green text-white shadow-md'
+                                : 'text-gray-600 hover:text-gray-900'
                                 }`}
                         >
                             <div className="flex items-center gap-2">
@@ -601,8 +613,8 @@ export default function UnifiedScanPage() {
                         <button
                             onClick={() => handleModeSwitch('crop')}
                             className={`px-6 py-3 rounded-xl font-semibold transition-all ${mode === 'crop'
-                                    ? 'bg-apeel-green text-white shadow-md'
-                                    : 'text-gray-600 hover:text-gray-900'
+                                ? 'bg-apeel-green text-white shadow-md'
+                                : 'text-gray-600 hover:text-gray-900'
                                 }`}
                         >
                             <div className="flex items-center gap-2">
@@ -614,7 +626,7 @@ export default function UnifiedScanPage() {
 
                     {mode === 'leaf' && system && (
                         <p className="text-sm text-gray-600">
-                            Target: <span className="text-apeel-green font-bold">{system.profiles.find(p => p.id === system.activeProfileId)?.name || 'Loading...'}</span>
+                            {/* Target label removed */}
                         </p>
                     )}
                 </div>

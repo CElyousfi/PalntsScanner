@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     console.log('📦 Request body:', JSON.stringify(body, null, 2))
     
-    const { query, location, language = 'en' } = body
+    const { query, location, language = 'en', userRadius } = body
 
     if (!query) {
       console.log('❌ No query provided')
@@ -66,11 +66,19 @@ export async function POST(request: NextRequest) {
 
     console.log('🔍 Processing Map Query:', query)
     console.log('📍 User Location:', location)
+    console.log('📏 User-Selected Radius:', userRadius, 'km')
     console.log('🌐 Language:', language)
 
     // Step 1: Interpret Query with AI
     console.log('🤖 Step 1: Interpreting query with AI...')
     const interpretation = await interpretQuery(query, location, language)
+    
+    // Override AI radius with user's selection if provided
+    if (userRadius) {
+      interpretation.radiusKm = Math.min(userRadius, 50) // Cap at 50km
+      console.log(`✅ Using user-selected radius: ${interpretation.radiusKm}km`)
+    }
+    
     console.log('✅ Interpretation complete:', interpretation)
     
     // Step 2: Execute Search Based on Intent
@@ -105,41 +113,49 @@ export async function POST(request: NextRequest) {
  * AI-powered query interpretation
  */
 async function interpretQuery(query: string, location: any, language: string) {
-  const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' })
+  const model = genAI.getGenerativeModel({ 
+    model: 'gemini-3-flash-preview'
+    // Note: Google Search grounding would require additional setup
+  })
 
-  const prompt = `You are an agricultural logistics AI assistant processing a farmer's map query globally.
+  const prompt = `You are an agricultural logistics AI assistant helping farmers find suppliers.
 
 Query: "${query}"
 Location: ${location ? `${location.lat}, ${location.lng}` : 'Unknown'}
 Language: ${language}
 
-Analyze this query and extract:
-1. **Intent**: What is the farmer trying to find or do?
-   - "equipment" (tractors, repairs, parts)
-   - "inputs" (seeds, fertilizers, pesticides)
-   - "livestock" (veterinary, feed, animal health)
-   - "market" (sell produce, wholesalers, markets)
-   - "services" (irrigation, transport, storage)
-   - "emergency" (urgent repairs, disaster relief)
-   - "route" (plan multi-stop journey)
+⚠️ IMPORTANT: Keep search radius SMALL (10-30km) to show only truly nearby results.
 
-2. **Search Terms**: Specific keywords for Google Places search
-3. **Radius**: Appropriate search radius in km (10-200 based on urgency and location type)
-4. **Priority**: How urgent is this? (critical/high/medium/low)
-5. **Needs Route**: Does user want directions/route planning? (true/false)
-6. **Multilingual**: Detect if query is in another language and provide English equivalent
+Analyze this query and extract:
+1. **Intent**: What is the farmer trying to find?
+   - "inputs" (seeds, fertilizers, pesticides)
+   - "equipment" (tractors, repairs, parts)
+   - "livestock" (veterinary, feed, animal health)
+   - "market" (sell produce, wholesalers)
+   - "services" (irrigation, transport, storage)
+   - "emergency" (urgent help)
+
+2. **Search Terms**: 1-3 specific keywords for Google Places (keep simple)
+3. **Radius**: Search radius in km (DEFAULT: 20km, MAX: 50km for emergencies)
+4. **Priority**: Urgency level (critical/high/medium/low)
+5. **Needs Route**: Does user want directions? (true/false)
+
+⚠️ RADIUS GUIDELINES:
+- Normal search: 15-25km
+- Specific item: 20-30km
+- Emergency: 30-50km (max)
+- NEVER exceed 50km
 
 Examples:
-- "Where can I buy fungicide?" → Intent: inputs, Terms: "agricultural supply store fungicide", Radius: 30km
-- "Nearest tractor repair within 50km" → Intent: equipment, Terms: "tractor repair workshop", Radius: 50km
-- "Route to grain silo then fuel station" → Intent: route, NeedsRoute: true
-- "Emergency vet for cattle" → Intent: emergency, Priority: critical, Radius: 100km
+- "Where can I buy fungicide?" → Radius: 20km, Terms: ["agricultural supply", "farm store"]
+- "Nearest tractor repair" → Radius: 25km, Terms: ["tractor repair", "farm equipment"]
+- "Emergency vet" → Radius: 40km, Terms: ["veterinary clinic", "animal hospital"]
 
 Output JSON only:
 {
   "intent": "string",
   "searchTerms": ["string", "string"],
-  "radiusKm": number,
+  "radiusKm": number (10-50 only),
   "priority": "critical" | "high" | "medium" | "low",
   "needsRoute": boolean,
   "detectedLanguage": "string",
@@ -153,22 +169,39 @@ Output JSON only:
 }
 
 /**
- * Execute Google Places search with fallback strategies
+ * Execute Google Places search with better fallback strategies
  */
 async function executeSearch(interpretation: any, userLocation: any): Promise<MapQueryResult> {
-  const places: PlaceResult[] = []
+  let places: PlaceResult[] = []
+  const maxRadius = 50
+  let radiusKm = Math.min(interpretation.radiusKm, maxRadius)
   
   console.log(`📋 Search terms: ${interpretation.searchTerms.join(', ')}`)
+  console.log(`📏 Radius: ${radiusKm}km`)
   
-  // Search each term
+  // Strategy 1: Try original search terms
   for (const term of interpretation.searchTerms) {
-    console.log(`🔎 Searching for: "${term}"`)
-    const foundPlaces = await searchGooglePlaces(term, userLocation, interpretation.radiusKm)
-    console.log(`  → Found ${foundPlaces.length} places for "${term}"`)
+    console.log(`🔎 Strategy 1 - Searching: "${term}"`)
+    const foundPlaces = await searchGooglePlaces(term, userLocation, radiusKm)
+    console.log(`  → Found ${foundPlaces.length} places`)
     places.push(...foundPlaces)
   }
 
-  console.log(`📊 Total places before deduplication: ${places.length}`)
+  // Strategy 2: If few results, try broader terms
+  if (places.length < 5) {
+    console.log(`⚠️ Only ${places.length} results. Trying broader terms...`)
+    const broaderTerms = generateBroaderTerms(interpretation.intent)
+    
+    for (const term of broaderTerms) {
+      console.log(`🔎 Strategy 2 - Broader search: "${term}"`)
+      const foundPlaces = await searchGooglePlaces(term, userLocation, radiusKm)
+      console.log(`  → Found ${foundPlaces.length} places`)
+      places.push(...foundPlaces)
+      if (places.length >= 15) break // Stop when we have enough
+    }
+  }
+
+  console.log(`📊 Total places found: ${places.length}`)
 
   // Deduplicate by ID
   const uniquePlaces = Array.from(
@@ -177,17 +210,101 @@ async function executeSearch(interpretation: any, userLocation: any): Promise<Ma
   
   console.log(`📊 Unique places: ${uniquePlaces.length}`)
 
-  // Enrich with AI analysis
-  const enriched = await enrichPlacesWithAI(uniquePlaces, interpretation, userLocation)
+  // If no results, return helpful message
+  if (uniquePlaces.length === 0) {
+    return {
+      type: 'search',
+      category: interpretation.intent,
+      places: [],
+      aiInsight: `No suppliers found within ${radiusKm}km. Try adjusting the search radius slider above or use more general terms.`,
+      suggestions: [
+        `Increase search radius to 30-50km using the slider`,
+        'Try broader terms: "store" or "shop"',
+        'Search for general stores if specific suppliers are limited',
+        'Check if location services are enabled'
+      ]
+    }
+  }
 
-  return {
-    type: interpretation.needsRoute ? 'route' : 'search',
-    category: interpretation.intent,
-    places: enriched.places,
-    aiInsight: enriched.insight,
-    suggestions: enriched.suggestions
+  // Sort by distance
+  uniquePlaces.sort((a, b) => (a.distance || 999) - (b.distance || 999))
+  
+  // Take top 15 results (increased from 10)
+  const topResults = uniquePlaces.slice(0, 15)
+
+  // Enrich with AI analysis (with error handling)
+  try {
+    const enriched = await enrichPlacesWithAI(topResults, interpretation, userLocation)
+    return {
+      type: interpretation.needsRoute ? 'route' : 'search',
+      category: interpretation.intent,
+      places: enriched.places,
+      aiInsight: enriched.insight,
+      suggestions: enriched.suggestions
+    }
+  } catch (error) {
+    // Return raw results if AI enrichment fails
+    console.error('AI enrichment failed, returning raw results:', error)
+    return {
+      type: 'search',
+      category: interpretation.intent,
+      places: topResults,
+      aiInsight: `Found ${topResults.length} suppliers within ${radiusKm}km.`,
+      suggestions: ['Contact suppliers for details', 'Compare prices', 'Check opening hours']
+    }
   }
 }
+
+/**
+ * Generate broader search terms based on intent
+ */
+function generateBroaderTerms(intent: string): string[] {
+  const broadTerms: Record<string, string[]> = {
+    'inputs': [
+      'agricultural supply store',
+      'farm supply',
+      'garden center',
+      'fertilizer store',
+      'seed store',
+      'agro shop'
+    ],
+    'equipment': [
+      'tractor dealer',
+      'farm equipment',
+      'agricultural machinery',
+      'farm tools',
+      'irrigation equipment'
+    ],
+    'livestock': [
+      'veterinary clinic',
+      'animal feed store',
+      'livestock supply',
+      'farm animal care'
+    ],
+    'market': [
+      'farmers market',
+      'agricultural market',
+      'produce market',
+      'wholesale market'
+    ],
+    'services': [
+      'agricultural services',
+      'farm services',
+      'crop consultant',
+      'soil testing'
+    ],
+    'emergency': [
+      'emergency service',
+      '24 hour service',
+      'urgent repair',
+      'emergency vet'
+    ]
+  }
+  
+  return broadTerms[intent] || ['agricultural store', 'farm supply', 'garden center']
+}
+
+// Removed distant city search functions - we only show nearby results now
 
 /**
  * Search Google Places API
@@ -209,15 +326,17 @@ async function searchGooglePlaces(
   console.log('✅ API Key present:', GOOGLE_MAPS_KEY.substring(0, 20) + '...')
 
   try {
-    const requestBody = {
+    const requestBody: any = {
       textQuery: query,
-      locationRestriction: {
+      locationBias: {
         circle: {
           center: { latitude: center.lat, longitude: center.lng },
           radius: radiusKm * 1000
         }
       },
-      maxResultCount: 15
+      maxResultCount: 20, // Increased for better results
+      languageCode: 'en',
+      rankPreference: 'DISTANCE'
     }
     
     console.log('📦 Request body:', JSON.stringify(requestBody, null, 2))
@@ -288,64 +407,89 @@ async function enrichPlacesWithAI(
 
   const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' })
 
-  const prompt = `Agricultural Logistics Expert: Analyze these places for a farmer's query.
+  const prompt = `You are analyzing nearby agricultural suppliers. BE SELECTIVE - only return truly relevant places.
 
 Query Intent: ${interpretation.intent}
-Original Query: ${interpretation.reasoning}
+Farmer's Need: ${interpretation.reasoning}
 
-Places Found:
-${JSON.stringify(places.map((p, i) => ({ index: i, name: p.name, address: p.address, types: p.subCategory, distance: p.distance })), null, 2)}
+Nearby Places (sorted by distance):
+${JSON.stringify(places.map((p, i) => ({ 
+  index: i, 
+  name: p.name, 
+  address: p.address, 
+  distance: `${p.distance?.toFixed(1)}km`,
+  rating: p.rating,
+  types: p.subCategory 
+})), null, 2)}
 
-Tasks:
-1. **Categorize** each place: "Equipment Dealer", "Supply Store", "Veterinary Clinic", "Market", "Service Provider", etc.
-2. **Priority**: Rate urgency - critical (immediate need), high (within 24h), medium (within week), low (general)
-3. **Description**: 1-sentence why this place matches the farmer's need
-4. **Amenities**: List relevant features (e.g., "24/7 Service", "Organic Certified", "Delivery Available")
-5. **Insight**: Brief summary of availability and recommendations
-6. **Suggestions**: 2-3 actionable next steps
+CRITICAL INSTRUCTIONS:
+1. **FILTER OUT** irrelevant places (e.g., general stores when looking for farm equipment)
+2. **PRIORITIZE** by relevance AND distance (closer + more relevant = better)
+3. Only include places that ACTUALLY match the farmer's needs
+4. Maximum 8 results - quality over quantity
 
-Output JSON:
+For each RELEVANT place, provide:
+- **Category**: Specific type ("Agricultural Supply Store", "Tractor Dealer", etc.)
+- **Priority**: How well it matches (high/medium/low)
+- **Description**: ONE sentence explaining relevance
+- **Amenities**: 2-3 key features (e.g., "Expert Advice", "Delivery", "24/7")
+
+Output JSON (ONLY include relevant places):
 {
   "enriched": [
     {
       "index": number,
       "category": "string",
-      "priority": "critical"|"high"|"medium"|"low",
+      "priority": "high"|"medium"|"low",
       "description": "string",
-      "amenities": ["string"]
+      "amenities": ["string", "string"]
     }
   ],
-  "insight": "string",
-  "suggestions": ["string"]
+  "insight": "Found X nearby suppliers within Ykm. [Brief helpful note]",
+  "suggestions": ["Action 1", "Action 2"]
 }`
 
-  const result = await model.generateContent(prompt)
-  const text = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim()
-  const analysis = JSON.parse(text)
+  try {
+    const result = await model.generateContent(prompt)
+    const text = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim()
+    const analysis = JSON.parse(text)
 
-  const enrichedPlaces = analysis.enriched.map((e: any) => {
-    const place = places[e.index]
+    const enrichedPlaces = analysis.enriched.map((e: any) => {
+      const place = places[e.index]
+      if (!place) return null
+      return {
+        ...place,
+        category: e.category || place.category,
+        priority: e.priority || place.priority,
+        description: e.description || place.description,
+        amenities: e.amenities || []
+      }
+    }).filter(Boolean)
+
+    // Sort by priority and distance
+    enrichedPlaces.sort((a: PlaceResult, b: PlaceResult) => {
+      const priorityOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 }
+      const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority]
+      if (priorityDiff !== 0) return priorityDiff
+      return (a.distance || 999) - (b.distance || 999)
+    })
+
     return {
-      ...place,
-      category: e.category,
-      priority: e.priority,
-      description: e.description,
-      amenities: e.amenities
+      places: enrichedPlaces,
+      insight: analysis.insight || `Found ${enrichedPlaces.length} suppliers nearby.`,
+      suggestions: analysis.suggestions || ['Contact suppliers directly', 'Compare prices', 'Check opening hours']
     }
-  })
-
-  // Sort by priority and distance
-  enrichedPlaces.sort((a: PlaceResult, b: PlaceResult) => {
-    const priorityOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 }
-    const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority]
-    if (priorityDiff !== 0) return priorityDiff
-    return (a.distance || 999) - (b.distance || 999)
-  })
-
-  return {
-    places: enrichedPlaces,
-    insight: analysis.insight,
-    suggestions: analysis.suggestions
+  } catch (enrichError) {
+    console.error('AI enrichment failed, returning basic results:', enrichError)
+    
+    // Return places without AI enrichment
+    places.sort((a, b) => (a.distance || 999) - (b.distance || 999))
+    
+    return {
+      places,
+      insight: `Found ${places.length} suppliers within ${interpretation.radiusKm}km. Contact them for availability.`,
+      suggestions: ['Call ahead to confirm availability', 'Ask about delivery options', 'Compare prices between suppliers']
+    }
   }
 }
 

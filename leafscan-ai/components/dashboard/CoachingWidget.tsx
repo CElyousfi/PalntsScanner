@@ -41,7 +41,9 @@ export default function CoachingWidget() {
             <div className="space-y-3">
                 <h3 className="text-xl font-bold leading-tight">
                     {hasRain
-                        ? `Rain detected in ${user?.region.split(',')[0]}, Demo.`
+                        ? (user?.region
+                            ? `Rain detected in ${user.region.split(',')[0]}, Demo.`
+                            : "Rain detected in Casablanca, Demo.")
                         : `Great progress, Demo!`}
                 </h3>
 
